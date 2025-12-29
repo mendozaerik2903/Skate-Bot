@@ -1,0 +1,56 @@
+import { BotTrickSet } from "./types";
+
+export const BOT_TRICKS: BotTrickSet = {
+  Easy: {
+    'ollie': { regular: .60, fakie: .60 },
+    'bs 180': { regular: .40, fakie: .42 },
+    'fs 180': { regular: .40, fakie: .42 },
+    'bs shuvit': { regular: .46, fakie: .46, nollie: .48 },
+    'fs shuvit': { regular: .42, fakie: .40, nollie: .30 },
+    'kickflip': { regular: .25, fakie: .20 },
+    'heelflip': { regular: .25, fakie: .20 },
+
+    'varial kickflip': { regular: .10, fakie: .12 },
+    'varial heelflip': { regular: .10, fakie: .12 },
+  },
+  Medium: {
+    'ollie': { regular: .88, fakie: .88, nollie: .84, switch: .80},
+    'bs 180': { regular: .72, fakie: .76, nollie: .70, switch: .50},
+    'fs 180': { regular: .72, fakie: .76, nollie: .70, switch: .50},
+    'bs shuvit': { regular: .80, fakie: .80, nollie: .75, switch: .50},
+    'fs shuvit': { regular: .80, fakie: .80, nollie: .75, switch: .50},
+    'kickflip': { regular: .60, fakie: .60, nollie: .60, switch: .60},
+    'heelflip': { regular: .60, fakie: .60, nollie: .60, switch: .60},
+
+    'bs 360': { regular: .50, fakie: .65, nollie: .60, switch: .20},
+    'fs 360': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'bs 360 shuvit': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'fs 360 shuvit': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'varial kickflip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'varial heelflip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'hardflip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'inward heelflip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'tre flip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+    'laser flip': { regular: .0, fakie: .0, nollie: .0, switch: .0},
+  },
+  Hard: {
+    'ollie': { regular: .99, fakie: .98, nollie: .97, switch: .96},
+    'bs 180': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'fs 180': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'bs shuvit': { regular: .96, fakie: .96, nollie: .96, switch: .96},
+    'fs shuvit': { regular: .96, fakie: .96, nollie: .96, switch: .96},
+    'kickflip': { regular: .90, fakie: .90, nollie: .90, switch: .90},
+    'heelflip': { regular: .90, fakie: .90, nollie: .90, switch: .90},
+
+    'bs 360': { regular: .80, fakie: .88, nollie: .86, switch: .70},
+    'fs 360': { regular: .80, fakie: .88, nollie: .86, switch: .70},
+    'bs 360 shuvit': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'fs 360 shuvit': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'varial kickflip': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'varial heelflip': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'hardflip': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'inward heelflip': { regular: .94, fakie: .94, nollie: .92, switch: .90},
+    'tre flip': { regular: .90, fakie: .90, nollie: .90, switch: .90},
+    'laser flip': { regular: .85, fakie: .88, nollie: .80, switch: .75},
+  },
+};
