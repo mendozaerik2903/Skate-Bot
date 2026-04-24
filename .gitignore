@@ -32,6 +32,8 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+server/.env
 
 # typescript
 *.tsbuildinfo
@@ -40,3 +42,5 @@ yarn-error.*
 .vscode/
 
 app-example
+
+NOTES.txt

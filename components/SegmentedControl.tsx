@@ -9,7 +9,12 @@ type Props = {
   strict?: boolean;
 };
 
-export default function SegmentedControl({ options, selected, onSelect, strict }: Props) {
+export default function SegmentedControl({
+  options,
+  selected,
+  onSelect,
+  strict,
+}: Props) {
   return (
     <View style={styles.container}>
       {options.map((option) => (
@@ -21,21 +26,18 @@ export default function SegmentedControl({ options, selected, onSelect, strict }
           ]}
           onPress={() => {
             if (strict) {
-              onSelect(option)
+              onSelect(option);
             } else {
               if (selected === option) {
-                onSelect('');
+                onSelect("");
               } else {
-                onSelect(option)
+                onSelect(option);
               }
             }
           }}
         >
           <Text
-            style={[
-              styles.text,
-              selected === option && styles.selectedText,
-            ]}
+            style={[styles.text, selected === option && styles.selectedText]}
           >
             {option}
           </Text>

@@ -1,21 +1,19 @@
 import CustomHeader from "@/components/CustomHeader";
+import DiceConfigurator from "@/components/DiceConfigurator";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
 export default function DiceScreen() {
-  const {  } = useLocalSearchParams();
+  const {} = useLocalSearchParams();
 
-  const handleStart = () => {
-
-};
+  const handleStart = () => {};
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="dice" showBackButton/>
-
+      <CustomHeader title="dice" showBackButton />
+      <DiceConfigurator />
     </SafeAreaView>
   );
 }

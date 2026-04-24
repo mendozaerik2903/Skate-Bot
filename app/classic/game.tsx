@@ -8,16 +8,13 @@ import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
-const SKATE = "SKATE";
-
-export default function SkateScreen() {
-  const { offense, difficulty, scoreWord } = useLocalSearchParams<{
+export default function Game() {
+  const { offense, difficulty, letters } = useLocalSearchParams<{
     offense: string;
     difficulty: Difficulty;
-    scoreWord: string;
+    letters: string;
   }>();
-  const word = scoreWord;
+  const word = letters;
   const landedTricks = new Set<string>();
   const [botStatus, setBotStatus] = useState("neutral");
   const [botTurn, setBotTurn] = useState(false);
@@ -27,20 +24,18 @@ export default function SkateScreen() {
   const [botScore, setBotScore] = useState(0);
   const [winner, setWinner] = useState<"user" | "bot" | null>(null);
 
-   const addLetter = (player: "user" | "bot") => {
+  const addLetter = (player: "user" | "bot") => {
     if (player === "user") {
-      setUserScore(prev => {
+      setUserScore((prev) => {
         const updatedScore = prev + 1;
-        if (updatedScore >= scoreWord.length)
-          setWinner("bot");
+        if (updatedScore >= letters.length) setWinner("bot");
         return updatedScore;
       });
     }
     if (player === "bot") {
-      setBotScore(prev => {
+      setBotScore((prev) => {
         const updatedScore = prev + 1;
-        if (updatedScore >= scoreWord.length)
-          setWinner("user");
+        if (updatedScore >= letters.length) setWinner("user");
         return updatedScore;
       });
     }
@@ -58,77 +53,74 @@ export default function SkateScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CustomHeader title="battle" showBackButton/>
-      <MatchDisplay 
-        botStatus={botStatus} 
-        botLetters={scoreWord.substring(0, botScore)}
+      <CustomHeader title="battle" showBackButton />
+      <MatchDisplay
+        botStatus={botStatus}
+        botLetters={letters.substring(0, botScore)}
         botScore={botScore}
         userStatus="neutral"
-        userLetters={scoreWord.substring(0, userScore)}
+        userLetters={letters.substring(0, userScore)}
         userScore={userScore}
         offense={currentOffense} // 'bot' or 'user'
-        scoreWord={scoreWord}
+        scoreWord={letters}
       />
-
 
       {winner !== null ? (
         <View>
           <Text>The {winner} wins!</Text>
         </View>
       ) : (
-      <>
-        { botTurn === false && currentOffense === "user" ?
-        (
-          <View style={styles.container}>
-            <TrickBuilder 
-              turnSuccess={(result) => {
-                if (result.landed) {
-                  setCurrentTrick(result.trick ?? "");
-                  landedTricks.add(currentTrick);
-                  setBotTurn(true);
-                } else {
-                  switchOffense();
-                }
-              }}
-            />
-          </View>
-        ) : (
-          <View style={styles.container}>
-            <BotResponse
-              scoreWord={scoreWord}
-              difficulty={difficulty as Difficulty}
-              currentOffense={currentOffense}
-              userTrick={currentTrick}
-              botResult={(result) => {
-                // bot sets new trick for user
-                if (currentOffense === "user") {
-                  if (result.landed) {
-                    setBotTurn(false);
-                  } else {
-                    addLetter("bot");
-                    setBotTurn(false);
-                  }
-                } else if (currentOffense === "bot") {
+        <>
+          {botTurn === false && currentOffense === "user" ? (
+            <View style={styles.container}>
+              <TrickBuilder
+                turnSuccess={(result) => {
                   if (result.landed) {
                     setCurrentTrick(result.trick ?? "");
                     landedTricks.add(currentTrick);
+                    setBotTurn(true);
                   } else {
                     switchOffense();
                   }
-                } 
-              }}
-              userResult={(result) => {
-                if (result.landed)
-                  setBotTurn(true);
-                if (!result.landed) {
-                  addLetter("user");
-                  setBotTurn(true);
-                }
-              }}
-              botScore={botScore}
-              userScore={userScore}
-            />
-          </View>
+                }}
+              />
+            </View>
+          ) : (
+            <View style={styles.container}>
+              <BotResponse
+                scoreWord={letters}
+                difficulty={difficulty as Difficulty}
+                currentOffense={currentOffense}
+                userTrick={currentTrick}
+                botResult={(result) => {
+                  // bot sets new trick for user
+                  if (currentOffense === "user") {
+                    if (result.landed) {
+                      setBotTurn(false);
+                    } else {
+                      addLetter("bot");
+                      setBotTurn(false);
+                    }
+                  } else if (currentOffense === "bot") {
+                    if (result.landed) {
+                      setCurrentTrick(result.trick ?? "");
+                      landedTricks.add(currentTrick);
+                    } else {
+                      switchOffense();
+                    }
+                  }
+                }}
+                userResult={(result) => {
+                  if (result.landed) setBotTurn(true);
+                  if (!result.landed) {
+                    addLetter("user");
+                    setBotTurn(true);
+                  }
+                }}
+                botScore={botScore}
+                userScore={userScore}
+              />
+            </View>
           )}
         </>
       )}
