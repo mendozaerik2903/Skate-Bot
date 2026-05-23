@@ -1,23 +1,33 @@
-import { BOT_TRICKS } from '@/constants/bot-tricks';
-import { Difficulty, Stance, Trick } from '@/constants/types';
+import { BOT_TRICKS } from "@/constants/bot-tricks";
+import { TrickComponents } from "@/constants/trick-options";
+import { Difficulty } from "@/constants/types";
 
-export function attemptDefenseTrick(difficulty: Difficulty, trick: Trick) {
-  const parts = trick.trim().split(" ");
+export function attemptDefenseTrick(
+  difficulty: Difficulty,
+  trick: TrickComponents,
+): boolean {
+  const { stance, trick: trickName, rotation, modifier } = trick;
 
-  // Extract stance and base trick name
-  let stance: Stance = "regular";
-  let baseTrick = trick.toLowerCase();
+  const trickSet = BOT_TRICKS[difficulty];
+  const trickData = trickSet[trickName.toLowerCase()];
 
-  if (["fakie", "nollie", "switch"].includes(parts[0])) {
-    stance = parts[0] as Stance;
-    baseTrick = parts.slice(1).join(" ");
-  }
+  // Bot has no entry for this trick at this difficulty — auto fail
+  if (!trickData) return false;
 
-  // Look up base trick
-  const trickMap = BOT_TRICKS[difficulty];
-  const stanceMap = trickMap[baseTrick.toLowerCase()];
+  const baseStanceRate = trickData.stanceRates[stance] ?? 0;
 
-  const landRate = stanceMap?.[stance] ?? 0;
+  // Bot has no entry for this stance at this difficulty — auto fail
+  if (baseStanceRate === 0) return false;
+
+  const rotationMultiplier = rotation
+    ? (trickData.rotationModifiers[rotation] ?? 0)
+    : 1;
+
+  const modifierMultiplier = modifier
+    ? (trickData.modifierPenalties[modifier] ?? 0)
+    : 1;
+
+  const landRate = baseStanceRate * rotationMultiplier * modifierMultiplier;
 
   return Math.random() < landRate;
 }

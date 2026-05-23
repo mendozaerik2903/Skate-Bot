@@ -1,42 +1,57 @@
-import { BOT_TRICKS } from '@/constants/bot-tricks';
-import { Difficulty, Stance } from '@/constants/types';
+import { BotTrickSet } from "@/constants/bot-tricks";
+import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 
-function getRandomItem<T>(array: T[]): T {
-  return array[Math.floor(Math.random() * array.length)];
+function weightedSample(pool: BotTrickEntry[]): BotTrickEntry {
+  const totalWeight = pool.reduce(
+    (sum, entry) => sum + entry.baseStanceRate,
+    0,
+  );
+
+  let random = Math.random() * totalWeight;
+
+  for (const entry of pool) {
+    random -= entry.baseStanceRate;
+    if (random <= 0) return entry;
+  }
+
+  // Fallback — should never reach here but satisfies TypeScript
+  return pool[pool.length - 1];
 }
 
-function getRandomOffenseTrick(difficulty: Difficulty) {
-    const trickSet = BOT_TRICKS[difficulty];
-    const trickNames = Object.keys(trickSet);
-    if (trickNames.length === 0 ) throw new Error("bot-offense.ts: No tricks available");
-
-    const selectedTrick = getRandomItem(trickNames);
-    const stanceNames = Object.keys(trickSet[selectedTrick]) as Stance[];
-    if (stanceNames.length === 0) throw new Error("bot-offense.ts: No stances available for trick");
-
-    const selectedStance = getRandomItem(stanceNames);
-    const landRate = trickSet[selectedTrick][selectedStance] ?? 0; // 0 land rate as a fallback to undefined
-
-    const trick = 
-        selectedStance === "regular" ? selectedTrick
-        : `${selectedStance} ${selectedTrick}`;
-
-    return {
-        trick,
-        landRate
-    };
+function attemptTrick(landRate: number): boolean {
+  return Math.random() < landRate;
 }
 
-function attemptOffenseTrick(landRate: number) {
-    return Math.random() < landRate;
-}
+export function botOffenseTurn(
+  pool: BotTrickEntry[],
+  trickSet: BotTrickSet,
+): {
+  entry: BotTrickEntry;
+  success: boolean;
+  updatedPool: BotTrickEntry[];
+  poolWasReset: boolean;
+} {
+  let currentPool = pool;
+  let poolWasReset = false;
 
-export function botOffenseTurn(difficulty: Difficulty) {
-    const offenseResult = getRandomOffenseTrick(difficulty);
-    const botOffenseTrick = offenseResult.trick;
-    const botOffenseSuccess = attemptOffenseTrick(offenseResult.landRate);
-    return {
-        botOffenseTrick,
-        botOffenseSuccess
-    };
+  // Rebuild pool if exhausted
+  if (currentPool.length === 0) {
+    currentPool = buildBotPool(trickSet);
+    poolWasReset = true;
+  }
+
+  const entry = weightedSample(currentPool);
+  const success = attemptTrick(entry.landRate);
+
+  // Only exhaust the trick if it was successfully landed on offense
+  const updatedPool = success
+    ? currentPool.filter((e) => e.fullString !== entry.fullString)
+    : currentPool;
+
+  return {
+    entry,
+    success,
+    updatedPool,
+    poolWasReset,
+  };
 }

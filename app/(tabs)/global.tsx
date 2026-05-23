@@ -151,28 +151,86 @@ export default function Global() {
           </MapView>
         )}
 
-        <Modal visible={detailModalVisible} transparent animationType="fade">
+        {/* ── Spot Detail Modal ── */}
+        <Modal visible={detailModalVisible} transparent animationType="slide">
           <TouchableOpacity
             style={styles.modalOverlay}
+            activeOpacity={1}
             onPress={() => setDetailModalVisible(false)}
           >
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{selectedSpot?.name}</Text>
-              {selectedSpot?.description ? (
-                <Text style={styles.detailDescription}>
-                  {selectedSpot.description}
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={styles.detailModalContent}
+            >
+              {/* Handle bar */}
+              <View style={styles.handleBar} />
+
+              {/* Header row */}
+              <View style={styles.detailHeader}>
+                <View style={styles.detailPinBadge}>
+                  <Text style={styles.detailPinIcon}>📍</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detailTitle}>{selectedSpot?.name}</Text>
+                  <Text style={styles.detailSubtitle}>User-submitted spot</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setDetailModalVisible(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Description */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionLabel}>DESCRIPTION</Text>
+                <Text style={styles.detailSectionValue}>
+                  {selectedSpot?.description?.trim()
+                    ? selectedSpot.description
+                    : "No description provided."}
                 </Text>
-              ) : null}
-              <Text style={styles.detailCoords}>
-                {selectedSpot?.latitude}, {selectedSpot?.longitude}
-              </Text>
-              <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                <Text style={styles.cancelText}>Close</Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+
+              {/* Coordinates */}
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionLabel}>COORDINATES</Text>
+                <View style={styles.coordRow}>
+                  <View style={styles.coordPill}>
+                    <Text style={styles.coordPillLabel}>LAT</Text>
+                    <Text style={styles.coordPillValue}>
+                      {parseFloat(String(selectedSpot?.latitude)).toFixed(5)}
+                    </Text>
+                  </View>
+                  <View style={styles.coordPill}>
+                    <Text style={styles.coordPillLabel}>LNG</Text>
+                    <Text style={styles.coordPillValue}>
+                      {parseFloat(String(selectedSpot?.longitude)).toFixed(5)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Actions */}
+              <View style={styles.detailActions}>
+                <TouchableOpacity
+                  style={styles.actionButtonSecondary}
+                  onPress={() => setDetailModalVisible(false)}
+                >
+                  <Text style={styles.actionButtonSecondaryText}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButtonPrimary}>
+                  <Text style={styles.actionButtonPrimaryText}>Go Here</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
 
+        {/* ── Add Spot Modal ── */}
         <Modal visible={modalVisible} transparent animationType="fade">
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -229,11 +287,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
+  // ── Shared overlay ──
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
+
+  // ── Add Spot modal (original, unchanged) ──
   modalContent: {
     backgroundColor: "#fff",
     padding: 24,
@@ -266,12 +328,137 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#888",
   },
-  detailDescription: {
-    fontSize: 14,
-    color: "#444",
+
+  // ── Spot Detail modal ──
+  detailModalContent: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+    paddingTop: 12,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    gap: 0,
   },
-  detailCoords: {
-    fontSize: 12,
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  detailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 20,
+  },
+  detailPinBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#f2f2f2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  detailPinIcon: {
+    fontSize: 22,
+  },
+  detailTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111",
+    lineHeight: 24,
+  },
+  detailSubtitle: {
+    fontSize: 13,
+    color: "#999",
+    marginTop: 2,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f2f2f2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontSize: 13,
+    color: "#555",
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 20,
+  },
+  detailSection: {
+    marginBottom: 20,
+    gap: 8,
+  },
+  detailSectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
     color: "#aaa",
+    letterSpacing: 1,
+  },
+  detailSectionValue: {
+    fontSize: 15,
+    color: "#333",
+    lineHeight: 22,
+  },
+  coordRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  coordPill: {
+    flex: 1,
+    backgroundColor: "#f6f6f6",
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  coordPillLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#aaa",
+    letterSpacing: 0.8,
+  },
+  coordPillValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#222",
+    fontVariant: ["tabular-nums"],
+  },
+  detailActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  actionButtonSecondary: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    alignItems: "center",
+  },
+  actionButtonSecondaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#555",
+  },
+  actionButtonPrimary: {
+    flex: 2,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#000",
+    alignItems: "center",
+  },
+  actionButtonPrimaryText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

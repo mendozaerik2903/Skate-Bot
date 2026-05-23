@@ -2,7 +2,10 @@ import BotResponse from "@/components/BotResponse";
 import CustomHeader from "@/components/CustomHeader";
 import MatchDisplay from "@/components/MatchDisplay";
 import TrickBuilder from "@/components/TrickBuilder";
+import { BOT_TRICKS } from "@/constants/bot-tricks";
+import { TrickComponents } from "@/constants/trick-options";
 import { Difficulty } from "@/constants/types";
+import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import { useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -15,14 +18,19 @@ export default function Game() {
     letters: string;
   }>();
   const word = letters;
-  const landedTricks = new Set<string>();
   const [botStatus, setBotStatus] = useState("neutral");
   const [botTurn, setBotTurn] = useState(false);
-  const [currentTrick, setCurrentTrick] = useState("");
+  const [currentTrick, setCurrentTrick] = useState<TrickComponents | undefined>(
+    undefined,
+  );
   const [currentOffense, setCurrentOffense] = useState(offense.toString());
   const [userScore, setUserScore] = useState(0);
   const [botScore, setBotScore] = useState(0);
   const [winner, setWinner] = useState<"user" | "bot" | null>(null);
+  const [botPool, setBotPool] = useState<BotTrickEntry[]>(() =>
+    buildBotPool(BOT_TRICKS[difficulty]),
+  );
+  const [exhaustedTricks, setExhaustedTricks] = useState<string[]>([]);
 
   const addLetter = (player: "user" | "bot") => {
     if (player === "user") {
@@ -74,10 +82,12 @@ export default function Game() {
           {botTurn === false && currentOffense === "user" ? (
             <View style={styles.container}>
               <TrickBuilder
+                exhaustedTricks={exhaustedTricks}
                 turnSuccess={(result) => {
                   if (result.landed) {
-                    setCurrentTrick(result.trick ?? "");
-                    landedTricks.add(currentTrick);
+                    setCurrentTrick(result.trickComponents);
+                    if (result.trick)
+                      setExhaustedTricks((prev) => [...prev, result.trick!]);
                     setBotTurn(true);
                   } else {
                     switchOffense();
@@ -88,6 +98,12 @@ export default function Game() {
           ) : (
             <View style={styles.container}>
               <BotResponse
+                exhaustedTricks={exhaustedTricks}
+                onTrickExhausted={(trick) =>
+                  setExhaustedTricks((prev) => [...prev, trick])
+                }
+                botPool={botPool}
+                onPoolUpdate={(updatedPool) => setBotPool(updatedPool)}
                 scoreWord={letters}
                 difficulty={difficulty as Difficulty}
                 currentOffense={currentOffense}
@@ -103,8 +119,9 @@ export default function Game() {
                     }
                   } else if (currentOffense === "bot") {
                     if (result.landed) {
-                      setCurrentTrick(result.trick ?? "");
-                      landedTricks.add(currentTrick);
+                      setCurrentTrick(result.trickComponents);
+                      if (result.trick)
+                        setExhaustedTricks((prev) => [...prev, result.trick!]);
                     } else {
                       switchOffense();
                     }
