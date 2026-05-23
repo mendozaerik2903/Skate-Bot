@@ -1,4 +1,4 @@
-# SKATE vs Bot — Feature Design Spec
+# Features of App System
 
 ## Data Model
 
