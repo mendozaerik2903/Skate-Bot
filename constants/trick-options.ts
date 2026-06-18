@@ -11,6 +11,7 @@ export type TrickComponents = {
   rotation: Rotation; // 'bs' | 'fs' | 'bs 180' | ''
   trick: string; // 'ollie' | 'kickflip' | 'shuvit'
   modifier: Modifier; // 'body varial' | 'revert' | 'late' | ''
+  fullName: string;
 };
 
 export const stanceOptions = ["regular", "fakie", "nollie", "switch"] as const;

@@ -15,13 +15,6 @@ export default function Index() {
     });
   };
 
-  const routeDice = () => {
-    router.push({
-      pathname: "/dice/dice",
-      params: {},
-    });
-  };
-
   return (
     <SafeAreaView style={styles.mainContainer}>
       <CustomHeader title="skate" />
@@ -31,13 +24,6 @@ export default function Index() {
           <Text style={styles.optionHeading}>Classic</Text>
           <Text style={styles.optionDescription}>
             Classic S.K.A.T.E. game with offense versus defense.
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.optionButton} onPress={routeDice}>
-          <Text style={styles.optionHeading}>Dice</Text>
-          <Text style={styles.optionDescription}>
-            Create dice that formulate a random trick every roll.
           </Text>
         </TouchableOpacity>
       </View>

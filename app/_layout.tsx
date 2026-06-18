@@ -33,7 +33,6 @@ export default function RootLayout() {
       <Stack.Screen name="classic/roshambo" />
       <Stack.Screen name="classic/game" />
       <Stack.Screen name="classic/options" />
-      <Stack.Screen name="dice/dice" />
     </Stack>
   );
 }

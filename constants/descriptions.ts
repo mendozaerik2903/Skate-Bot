@@ -1,6 +1,5 @@
 const DESCRIPTIONS = {
-  skateMode: 
-`SKATE has two sides: Offense and Defense. 
+  skateMode: `SKATE has two sides: Offense and Defense. 
 
 Offense is chosen at the start of the game through Roshambo (Rock Paper Scissors) and must land a trick for Defense to replicate.
 
@@ -10,11 +9,6 @@ If Offense fails to land a trick, a turnover occurs and roles switch.
 
 Defense loses once SKATE is spelled out and the last letter always gets two attempts.`,
 
-  diceMode: 
-`Dice allows the skater to customize their own set of tricks by choosing trick categories.
-
-These tricks will randomly be selected through the dice roll.`,
-  
   difficulties: {
     easy: "Beginner tricks such as ollies, shove-its, basic 180s, kickflips, and heelflips.",
     medium: "Intermediate tricks such as 180 flips, .",

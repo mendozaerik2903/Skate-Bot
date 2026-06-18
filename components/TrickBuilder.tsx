@@ -57,12 +57,13 @@ export default function TrickBuilder({
   const [stance, setStance] = useState<Stance>("regular");
   const [rotation, setRotation] = useState<Rotation>("");
   const [modifier, setModifier] = useState<Modifier>("");
-  const [trick, setTrick] = useState("Ollie");
+  const [trick, setTrick] = useState("ollie");
   const [trickObj, setTrickObj] = useState<TrickComponents>({
     stance: stance,
     rotation: rotation,
     modifier: modifier,
     trick: trick,
+    fullName: trick,
   });
 
   const selectedTrickObj = trickOptions.find((t) => t.value === trick);
@@ -106,7 +107,13 @@ export default function TrickBuilder({
     }
   }, [trick]);
 
-  const finalTrick = buildTrickName({ stance, rotation, trick, modifier });
+  const finalTrick = buildTrickName({
+    stance,
+    rotation,
+    trick,
+    modifier,
+    fullName: "",
+  });
   const isExhausted = exhaustedTricks.includes(finalTrick);
 
   return (
@@ -120,7 +127,13 @@ export default function TrickBuilder({
             turnSuccess({
               offense: true,
               trick: finalTrick,
-              trickComponents: { stance, rotation, trick, modifier },
+              trickComponents: {
+                stance,
+                rotation,
+                trick,
+                modifier,
+                fullName: finalTrick,
+              },
               landed: true,
             });
           }}

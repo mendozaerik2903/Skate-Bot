@@ -1,21 +1,20 @@
-# Features of App System
+# Features of App
 
-## Data Model
+## Starting a Game
 
-- **Base tricks + modifier combinations** seeded upfront in Postgres
-- **Land rate lives on the full modifier combination**, not on individual modifier axes
-- **Single source of truth** — the frontend derives all modifier availability from a `GET /api/tricks/combinations` call at game load; no static config files on the client
-- Every combination always carries its land rate value regardless of its enabled state
+On the "Skate" tab, the user can play a game of SKATE against a bot with customizable game options. The user is able to adjust the difficulty of the game, the length of the game, and
 
-### Modifier Axes
+## Adaptive Bot Difficulty
 
-Each base trick accepts up to five parameter axes:
+adjusts the opponent's behavior in real-time based on your recent performance. A rolling window of match results feeds into a scoring function that shifts the bot's trick sampling toward harder combinations as you improve — keeping matches competitive without any manual tuning. No external API required; it's a closed-loop feedback algorithm built entirely on your existing trick pool infrastructure.
 
-- **Stance:** Normal, Fakie, Nollie, Switch
-- **Direction:** Frontside, Backside
-- **Rotation:** 180, 360, 540
-- **Modifier:** Body varial, Pressure, Revert, Late
-- **Land Rate:** A percentage (0–100%) representing both the bot's probability of landing the trick and its weighted attempt frequency
+## Weakness Detection
+
+analyzes your defense miss history across sessions and surfaces patterns you might not notice yourself — like consistently missing switch-stance tricks or heelflip variations. The core version is free and template-based, aggregating your match data into actionable insights displayed as a coach card on your profile. An LLM layer can optionally be added for more natural language output, but the statistical foundation delivers most of the value on its own.
+
+## Natural Language Trick Challenges
+
+lets you describe a practice session in plain English — "only switch stance flip tricks" or "hardest tricks only" — and parses that into a filtered trick pool for the match. Your existing game engine runs unchanged; the LLM simply acts as a query interface over your static trick data, grounding its output in your defined trick list to prevent hallucination.
 
 ---
 

@@ -9,3 +9,12 @@ export type AttemptResults = {
   landed: boolean;
   score?: number;
 };
+
+export type TrickHistoryEntry = {
+  trick: string; // built via buildTrickName()
+  performer: "user" | "bot";
+  offense: boolean;
+  landed: boolean;
+  performerScore: number; // snapshot of performer's score at time of entry
+  turn: number;
+};

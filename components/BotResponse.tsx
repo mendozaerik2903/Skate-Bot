@@ -1,12 +1,9 @@
-import TimerBar from "@/components/TimerBar";
-import { BOT_TRICKS } from "@/constants/bot-tricks";
 import { TrickComponents } from "@/constants/trick-options";
 import { AttemptResults, Difficulty } from "@/constants/types";
 import { attemptDefenseTrick } from "@/utility/bot-defense";
-import { botOffenseTurn } from "@/utility/bot-offense";
+import { botOffenseTurn, ProgressionState } from "@/utility/bot-offense";
 import { BotTrickEntry } from "@/utility/pool-builder";
-import { buildTrickName } from "@/utility/trick-manipulator";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import TrickResponse from "./TrickResponse";
 
@@ -20,7 +17,11 @@ interface BotResponseProps {
   botScore: number;
   userScore: number;
   botPool: BotTrickEntry[];
+  resetPool: BotTrickEntry[];
   onPoolUpdate: (updatedPool: BotTrickEntry[]) => void;
+  onPoolReset: () => void;
+  progression: ProgressionState;
+  onProgressionUpdate: (updated: ProgressionState) => void;
   exhaustedTricks: string[];
   onTrickExhausted: (trick: string) => void;
 }
@@ -35,7 +36,11 @@ export default function BotResponse({
   botScore,
   userScore,
   botPool,
+  resetPool,
   onPoolUpdate,
+  onPoolReset,
+  progression,
+  onProgressionUpdate,
   exhaustedTricks,
   onTrickExhausted,
 }: BotResponseProps) {
@@ -43,29 +48,46 @@ export default function BotResponse({
   const [landedTrick, setLandedTrick] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [turns, setTurns] = useState(0);
-  const [isRedemption, setIsRedepmtion] = useState(false);
+  const [isRedemption, setIsRedemption] = useState(false);
+  const [isBotRedemption, setIsBotRedemption] = useState(false);
+
+  const hasFiredRef = useRef(false);
 
   useEffect(() => {
+    hasFiredRef.current = false;
     setIsLoading(true);
-    if (currentOffense === "bot" && landedTrick === false) {
+
+    if (currentOffense === "bot") {
       const timeout = setTimeout(() => {
-        const turn = botOffenseTurn(botPool, BOT_TRICKS[difficulty]);
+        const availablePool = botPool.filter(
+          (e) => !exhaustedTricks.includes(e.fullString),
+        );
+        const turn = botOffenseTurn(availablePool, resetPool, progression);
         setSelectedTrick(turn.entry.fullString);
         setLandedTrick(turn.success);
         onPoolUpdate(turn.updatedPool);
+        onProgressionUpdate(turn.updatedProgression);
         if (turn.success) onTrickExhausted(turn.entry.fullString);
-        if (turn.poolWasReset) console.log("Bot trick pool was reset");
+        if (turn.poolWasReset) {
+          onPoolReset();
+          console.log("Bot trick pool was reset");
+        }
+        if (turn.tierAdvanced)
+          console.log(
+            "Progression window advanced to tier",
+            turn.updatedProgression.activeTier,
+          );
         setIsLoading(false);
 
-        const resultDelay = setTimeout(() => {
+        if (!hasFiredRef.current) {
+          hasFiredRef.current = true;
           botResult({
             offense: true,
             trick: turn.entry.fullString,
             landed: turn.success,
             score: botScore,
           });
-        }, 2000);
-        return () => clearTimeout(resultDelay);
+        }
       }, 1800);
       return () => clearTimeout(timeout);
     }
@@ -73,14 +95,52 @@ export default function BotResponse({
     if (currentOffense === "user" && userTrick) {
       const timeout = setTimeout(() => {
         const botDefenseSuccess = attemptDefenseTrick(difficulty, userTrick!);
-        setSelectedTrick(buildTrickName(userTrick!));
+        const isBotOnMatchPoint = scoreWord.length - 1 === botScore;
+
+        setSelectedTrick(userTrick.fullName);
         setLandedTrick(botDefenseSuccess);
         setIsLoading(false);
 
+        if (!botDefenseSuccess && isBotOnMatchPoint) {
+          setIsBotRedemption(true);
+
+          const redemptionTimeout = setTimeout(() => {
+            setSelectedTrick("");
+            setLandedTrick(false);
+            setIsLoading(true);
+
+            setTimeout(() => {
+              const redemptionSuccess = attemptDefenseTrick(
+                difficulty,
+                userTrick!,
+              );
+              setSelectedTrick(userTrick.fullName);
+              setLandedTrick(redemptionSuccess);
+              setIsLoading(false);
+              setIsBotRedemption(false);
+
+              setTimeout(() => {
+                if (hasFiredRef.current) return;
+                hasFiredRef.current = true;
+                botResult({
+                  offense: false,
+                  trick: userTrick.fullName,
+                  landed: redemptionSuccess,
+                  score: botScore,
+                });
+              }, 2000);
+            }, 1800);
+          }, 2200);
+
+          return () => clearTimeout(redemptionTimeout);
+        }
+
         const resultDelay = setTimeout(() => {
+          if (hasFiredRef.current) return;
+          hasFiredRef.current = true;
           botResult({
             offense: false,
-            trick: selectedTrick,
+            trick: userTrick.fullName,
             landed: botDefenseSuccess,
             score: botScore,
           });
@@ -89,8 +149,9 @@ export default function BotResponse({
       }, 1800);
       return () => clearTimeout(timeout);
     }
+
     setIsLoading(false);
-  }, [turns]); // Rerun Bot based on these variables changing.
+  }, [turns]);
 
   return (
     <View style={styles.container}>
@@ -99,7 +160,9 @@ export default function BotResponse({
           <Text style={styles.text}>
             {currentOffense === "bot"
               ? "🤖 Bot is picking a trick..."
-              : `Bot is attempting your ${userTrick}`}
+              : isBotRedemption
+                ? "🤖 Bot gets a second chance..."
+                : `Bot is attempting your ${userTrick?.fullName}`}
           </Text>
           <ActivityIndicator size="large" color="#1E90FF" />
         </View>
@@ -109,7 +172,6 @@ export default function BotResponse({
             Bot {landedTrick ? "landed" : "missed"} a:
           </Text>
           <Text style={styles.trick}>{selectedTrick}</Text>
-          <TimerBar duration={2000} style={{ marginTop: 10 }} />
           {landedTrick && currentOffense === "bot" && (
             <View>
               <Text style={styles.text}>
@@ -126,7 +188,7 @@ export default function BotResponse({
                     landed: true,
                     score: userScore,
                   });
-                  setIsRedepmtion(false);
+                  setIsRedemption(false);
                   setLandedTrick(false);
                   setSelectedTrick("");
                   setTurns(turns + 1);
@@ -136,7 +198,7 @@ export default function BotResponse({
                     scoreWord.length - 1 === userScore &&
                     isRedemption === false
                   ) {
-                    setIsRedepmtion(true);
+                    setIsRedemption(true);
                   } else {
                     userResult({
                       offense: false,
@@ -185,7 +247,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
-    backgroundColor: "#1E90FF", // default blue
+    backgroundColor: "#1E90FF",
     marginHorizontal: 8,
     alignItems: "center",
   },
