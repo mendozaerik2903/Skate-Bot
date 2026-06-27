@@ -1,7 +1,15 @@
+import { landRateScaleColor } from "@/constants/difficulty";
 import { Stance } from "@/constants/trick-options";
 import { BotTrickEntry } from "@/utility/pool-builder";
-import React, { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,17 +39,14 @@ const STANCE_ABBREV: Record<Stance, string> = {
 const STANCE_ORDER: Stance[] = ["regular", "fakie", "nollie", "switch"];
 
 const CARD_WIDTH = 140;
-const CARD_HEIGHT = 76;
+const CARD_HEIGHT = 62;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function landRateColor(rate: number): string {
-  if (rate >= 0.7) return "#34C759";
-  if (rate >= 0.4) return "#FF9500";
-  return "#FF3B30";
-}
+// landRateColor moved to constants/difficulty.ts as landRateScaleColor —
+// kept the import name distinct so call sites below read clearly.
 
 function buildVariantCards(pool: BotTrickEntry[]): VariantCard[] {
   const map = new Map<
@@ -88,33 +93,43 @@ function splitIntoRows(cards: VariantCard[]): [VariantCard[], VariantCard[]] {
 // Single variant card
 // ---------------------------------------------------------------------------
 
-function VariantCard({ card }: { card: VariantCard }) {
+function VariantCard({
+  card,
+  onPress,
+}: {
+  card: VariantCard;
+  onPress: () => void;
+}) {
   return (
-    <View style={cardStyles.container}>
+    <Pressable
+      style={({ pressed }) => [
+        cardStyles.container,
+        pressed && cardStyles.containerPressed,
+      ]}
+      onPress={onPress}
+    >
       <Text style={cardStyles.name} numberOfLines={1}>
         {card.displayName}
       </Text>
       <View style={cardStyles.row}>
-        {card.stances.map((stance) => (
-          <Text key={stance} style={cardStyles.stanceLabel}>
-            {STANCE_ABBREV[stance]}
-          </Text>
-        ))}
-      </View>
-      <View style={cardStyles.row}>
         {card.stances.map((stance) => {
           const rate = card.landRates[stance] ?? 0;
           return (
-            <Text
+            <View
               key={stance}
-              style={[cardStyles.rateLabel, { color: landRateColor(rate) }]}
+              style={[
+                cardStyles.stanceChip,
+                { backgroundColor: landRateScaleColor(rate) },
+              ]}
             >
-              {Math.round(rate * 100)}%
-            </Text>
+              <Text style={cardStyles.stanceChipText}>
+                {STANCE_ABBREV[stance]}
+              </Text>
+            </View>
           );
         })}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -135,6 +150,10 @@ const cardStyles = StyleSheet.create({
     gap: 4,
     justifyContent: "space-between",
   },
+  containerPressed: {
+    backgroundColor: "#f5f5f5",
+    borderColor: "#ddd",
+  },
   name: {
     fontSize: 12,
     fontWeight: "700",
@@ -143,20 +162,117 @@ const cardStyles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 4,
   },
-  stanceLabel: {
-    fontSize: 10,
-    color: "#888",
-    fontWeight: "500",
+  stanceChip: {
     flex: 1,
-    textAlign: "center",
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  rateLabel: {
-    fontSize: 10,
+  stanceChipText: {
+    fontSize: 9,
     fontWeight: "700",
+    color: "#fff",
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Detail modal
+// ---------------------------------------------------------------------------
+
+function TrickDetailModal({
+  card,
+  onClose,
+}: {
+  card: VariantCard | null;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={card !== null}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={modalStyles.backdrop} onPress={onClose}>
+        {card && (
+          <Pressable style={modalStyles.sheet} onPress={() => {}}>
+            <Text style={modalStyles.name}>{card.displayName}</Text>
+            <View style={modalStyles.ratesList}>
+              {card.stances.map((stance) => {
+                const rate = card.landRates[stance] ?? 0;
+                return (
+                  <View key={stance} style={modalStyles.rateRow}>
+                    <Text style={modalStyles.stanceName}>
+                      {STANCE_ABBREV[stance]}
+                    </Text>
+                    <Text
+                      style={[
+                        modalStyles.rateValue,
+                        { color: landRateScaleColor(rate) },
+                      ]}
+                    >
+                      {Math.round(rate * 100)}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Pressable>
+        )}
+      </Pressable>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheet: {
+    width: 260,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    gap: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+    textTransform: "capitalize",
     textAlign: "center",
+  },
+  ratesList: {
+    gap: 10,
+  },
+  rateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  stanceName: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  rateValue: {
+    fontSize: 16,
+    fontWeight: "800",
   },
 });
 
@@ -167,30 +283,46 @@ const cardStyles = StyleSheet.create({
 export default function TrickStrip({ pool }: TrickStripProps) {
   const cards = useMemo(() => buildVariantCards(pool), [pool]);
   const [topRow, bottomRow] = useMemo(() => splitIntoRows(cards), [cards]);
+  const [selectedCard, setSelectedCard] = useState<VariantCard | null>(null);
 
   if (cards.length === 0) return null;
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={stripStyles.content}
-    >
-      <View style={stripStyles.column}>
-        {/* Top row */}
-        <View style={stripStyles.row}>
-          {topRow.map((card, i) => (
-            <VariantCard key={i} card={card} />
-          ))}
+    <>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={stripStyles.content}
+      >
+        <View style={stripStyles.column}>
+          {/* Top row */}
+          <View style={stripStyles.row}>
+            {topRow.map((card, i) => (
+              <VariantCard
+                key={i}
+                card={card}
+                onPress={() => setSelectedCard(card)}
+              />
+            ))}
+          </View>
+          {/* Bottom row */}
+          <View style={stripStyles.row}>
+            {bottomRow.map((card, i) => (
+              <VariantCard
+                key={i}
+                card={card}
+                onPress={() => setSelectedCard(card)}
+              />
+            ))}
+          </View>
         </View>
-        {/* Bottom row */}
-        <View style={stripStyles.row}>
-          {bottomRow.map((card, i) => (
-            <VariantCard key={i} card={card} />
-          ))}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      <TrickDetailModal
+        card={selectedCard}
+        onClose={() => setSelectedCard(null)}
+      />
+    </>
   );
 }
 

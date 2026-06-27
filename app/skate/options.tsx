@@ -1,9 +1,12 @@
 import CustomHeader from "@/components/CustomHeader";
 import CustomPoolEditor from "@/components/CustomPoolEditor";
+import DifficultySlider from "@/components/DifficultySlider";
+import PersonaCardView from "@/components/PersonaCardView";
 import SegmentedControl from "@/components/SegmentedControl";
 import TrickPoolSheet from "@/components/TrickPoolSheet";
 import TrickStrip from "@/components/TrickStrip";
-import { DIFFICULTY_SCALARS, MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
+import { MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
+import { DEFAULT_DIFFICULTY_VALUE } from "@/constants/difficulty";
 import { Difficulty } from "@/constants/types";
 import {
   BotCard,
@@ -31,10 +34,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_MARGIN = 12;
 const CARD_WIDTH = SCREEN_WIDTH - CARD_MARGIN * 4;
@@ -43,120 +42,16 @@ const LETTERS_OPTIONS = ["SK8", "SKATE", "SKATEBOARD"];
 const TURN_OPTIONS = ["User First", "Bot First", "Roshambo"] as const;
 type TurnOrder = (typeof TURN_OPTIONS)[number];
 
-const DIFFICULTY_OPTIONS: Difficulty[] = ["Easy", "Medium", "Hard"];
-
-// ---------------------------------------------------------------------------
-// Persona card component
-// ---------------------------------------------------------------------------
-
-function PersonaCardView({
-  card,
-  isActive,
-}: {
-  card: BotCard;
-  isActive: boolean;
-}) {
-  const isCustom = card.type === "custom";
-
-  return (
-    <View style={[cardStyles.card, isActive && cardStyles.activeCard]}>
-      <View style={cardStyles.avatarRow}>
-        <View style={[cardStyles.avatar, isCustom && cardStyles.customAvatar]}>
-          <Text style={cardStyles.avatarEmoji}>{isCustom ? "🛹" : "🤖"}</Text>
-        </View>
-        {isCustom && (
-          <View style={cardStyles.customBadge}>
-            <Text style={cardStyles.customBadgeText}>Custom</Text>
-          </View>
-        )}
-      </View>
-      <Text style={cardStyles.name}>{card.name}</Text>
-      <Text style={cardStyles.description}>
-        {isCustom
-          ? (card as CustomCard).savedPool
-            ? `${(card as CustomCard).savedPool!.length} variants configured`
-            : "Tap trick pool to configure"
-          : (card as any).styleDescription}
-      </Text>
-    </View>
-  );
-}
-
-const cardStyles = StyleSheet.create({
-  card: {
-    width: CARD_WIDTH,
-    marginHorizontal: CARD_MARGIN,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  activeCard: {
-    borderColor: "#1E90FF",
-  },
-  avatarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 8,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#f0f0f0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  customAvatar: {
-    backgroundColor: "#e8f0fe",
-  },
-  avatarEmoji: {
-    fontSize: 24,
-  },
-  customBadge: {
-    backgroundColor: "#1E90FF",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  customBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 13,
-    color: "#666",
-    lineHeight: 18,
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Main screen
-// ---------------------------------------------------------------------------
-
 export default function SkateScreen() {
   const [carousel, setCarousel] = useState<BotCard[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [difficulty, setDifficulty] = useState<Difficulty>("Medium");
+  const [difficulty, setDifficulty] = useState<Difficulty>(
+    DEFAULT_DIFFICULTY_VALUE,
+  );
   const [letters, setLetters] = useState("SKATE");
   const [turnOrder, setTurnOrder] = useState<TurnOrder>("Roshambo");
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
-  const flatListRef = useRef<FlatList<BotCard>>(null);
 
   // Load carousel on mount
   useEffect(() => {
@@ -171,20 +66,27 @@ export default function SkateScreen() {
     if (!activeCard) return [];
 
     if (activeCard.type === "custom") {
-      // Custom pool: sampleWeight matches landRate for display
-      return (activeCard.savedPool ?? []).map((entry) => ({
-        ...entry,
-        sampleWeight: entry.sampleWeight ?? entry.landRate,
-      }));
+      // Custom pool: difficulty slider acts as a live preview multiplier on
+      // top of the user's saved per-stance landRates. This is intentionally
+      // non-destructive — CustomPoolEditor always saves/loads the unscaled
+      // baseline, so readjusting the slider later never compounds or loses
+      // the original authored values.
+      return (activeCard.savedPool ?? []).map((entry) => {
+        const scaledLandRate = entry.landRate * difficulty;
+        return {
+          ...entry,
+          landRate: scaledLandRate,
+          sampleWeight: entry.sampleWeight ?? scaledLandRate,
+        };
+      });
     }
 
     // Persona: poolFilter returns BotTrickEntry[] with sampleWeight already set.
     // Apply difficulty scalar to landRate only — sampleWeight stays boosted.
     const pool = activeCard.poolFilter(MASTER_BOT_TRICKS);
-    const scalar = DIFFICULTY_SCALARS[difficulty];
     return pool.map((entry) => ({
       ...entry,
-      landRate: entry.landRate * scalar,
+      landRate: entry.landRate * difficulty,
     }));
   }, [activeCard, difficulty]);
 
@@ -242,15 +144,12 @@ export default function SkateScreen() {
           ? "bot"
           : "roshambo";
 
-    // Strip dots from letters for game params (S.K.A.T.E -> SKATE)
-    const scoreWord = letters.replace(/\./g, "");
-
     router.push({
-      pathname: "/classic/game",
+      pathname: "/skate/game",
       params: {
         offense: rawTurnOrder,
-        difficulty: isCustomActive ? "Custom" : difficulty,
-        letters: scoreWord,
+        difficulty: difficulty,
+        letters: letters,
         botCardId: activeCard.id,
         botCardType: activeCard.type,
       },
@@ -261,12 +160,11 @@ export default function SkateScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <CustomHeader title="skate" />
+      <CustomHeader title="skate" showBackButton />
 
       <View style={styles.content}>
-        {/* ── Bot Persona Carousel ── */}
+        {/* Bot Persona Carousel */}
         <FlatList
-          ref={flatListRef}
           data={carousel}
           horizontal
           pagingEnabled={false}
@@ -279,7 +177,11 @@ export default function SkateScreen() {
           viewabilityConfig={viewabilityConfig.current}
           contentContainerStyle={styles.carouselContent}
           renderItem={({ item, index }) => (
-            <PersonaCardView card={item} isActive={index === activeIndex} />
+            <PersonaCardView
+              card={item}
+              isActive={index === activeIndex}
+              width={CARD_WIDTH}
+            />
           )}
           style={styles.carousel}
         />
@@ -304,7 +206,7 @@ export default function SkateScreen() {
         {/* ── Trick pool button row ── */}
         <TouchableOpacity
           style={styles.poolRow}
-          onPress={() => openSheet()}
+          onPress={openSheet}
           activeOpacity={0.7}
         >
           <Text style={styles.poolRowLabel}>
@@ -316,18 +218,10 @@ export default function SkateScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* ── Difficulty (hidden for custom card) ── */}
-        {!isCustomActive && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Difficulty</Text>
-            <SegmentedControl
-              options={DIFFICULTY_OPTIONS}
-              selected={difficulty}
-              onSelect={(v: string) => setDifficulty(v as Difficulty)}
-              strict
-            />
-          </View>
-        )}
+        {/* ── Difficulty (shown for all card types, custom included) ── */}
+        <View style={styles.section}>
+          <DifficultySlider value={difficulty} onValueChange={setDifficulty} />
+        </View>
 
         {/* ── Match Settings ── */}
         <View style={styles.section}>
@@ -390,10 +284,6 @@ export default function SkateScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -436,11 +326,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#888",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    color: "#111",
   },
 
   // Strip wrapper — no horizontal padding, strip handles its own

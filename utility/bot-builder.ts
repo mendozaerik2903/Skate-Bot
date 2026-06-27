@@ -1,16 +1,9 @@
 import { BOT_PERSONAS } from "@/constants/bot-personas";
-import {
-  BotTrickSet,
-  DIFFICULTY_SCALARS,
-  MASTER_BOT_TRICKS,
-} from "@/constants/bot-tricks";
+import { BotTrickSet, MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
+import { DEFAULT_DIFFICULTY_VALUE } from "@/constants/difficulty";
 import { Difficulty } from "@/constants/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BotTrickEntry } from "./pool-builder";
-
-// ---------------------------------------------------------------------------
-// Bot card types
-// ---------------------------------------------------------------------------
 
 export type PersonaCard = {
   type: "persona";
@@ -24,12 +17,11 @@ export type CustomCard = {
   type: "custom";
   id: string; // unique per card, e.g. "custom-1"
   name: string; // user-editable, defaults to "My Bot"
-  savedPool: BotTrickEntry[] | null; // null = no config saved yet, falls back to last persona
+  savedPool: BotTrickEntry[] | null;
 };
 
 export type BotCard = PersonaCard | CustomCard;
 
-// The default persona used to seed the Custom card on first use
 export const DEFAULT_PERSONA_ID = "flatground-fred";
 
 // ---------------------------------------------------------------------------
@@ -103,7 +95,11 @@ export async function buildCarousel(): Promise<BotCard[]> {
 export type GameConfig = {
   botCardId: string;
   botCardType: "persona" | "custom";
-  difficulty: Difficulty | null; // null when botCardType === 'custom'
+  // Continuous [0,1] scalar, applied to landRate for both persona and custom
+  // pools. Never null in practice now — options.tsx always sends the current
+  // slider value regardless of card type — but kept nullable for safety at
+  // call sites that predate this change; falls back to DEFAULT_DIFFICULTY_VALUE.
+  difficulty: Difficulty | null;
   turnOrder: "user" | "bot" | "roshambo";
 };
 
@@ -118,19 +114,32 @@ export async function resolveGamePool(
   // buildBotPool still passed in for custom card fallback seeding
   buildBotPoolFn: (trickSet: BotTrickSet) => BotTrickEntry[],
 ): Promise<BotTrickEntry[]> {
+  const scalar = config.difficulty ?? DEFAULT_DIFFICULTY_VALUE;
+
   if (config.botCardType === "custom") {
     const cards = await loadCustomCards();
     const card = cards.find((c) => c.id === config.botCardId);
     if (card?.savedPool && card.savedPool.length > 0) {
-      // Custom pool: land rates used verbatim, sampleWeight matches landRate
-      return card.savedPool.map((entry) => ({
-        ...entry,
-        sampleWeight: entry.landRate,
-      }));
+      // Custom pool: difficulty scalar applied on top of the user's saved,
+      // unscaled landRates — mirrors the same non-destructive multiplier
+      // used for the live preview in options.tsx. sampleWeight matches the
+      // scaled landRate so pick probability tracks the adjusted difficulty.
+      return card.savedPool.map((entry) => {
+        const scaledLandRate = entry.landRate * scalar;
+        return {
+          ...entry,
+          landRate: scaledLandRate,
+          sampleWeight: scaledLandRate,
+        };
+      });
     }
     // Fallback: seed from default persona if no saved pool exists
     const fallback = BOT_PERSONAS.find((p) => p.id === DEFAULT_PERSONA_ID)!;
-    return fallback.poolFilter(MASTER_BOT_TRICKS);
+    const fallbackPool = fallback.poolFilter(MASTER_BOT_TRICKS);
+    return fallbackPool.map((entry) => ({
+      ...entry,
+      landRate: entry.landRate * scalar,
+    }));
   }
 
   // Persona path: poolFilter now returns BotTrickEntry[] directly
@@ -138,9 +147,6 @@ export async function resolveGamePool(
   if (!persona) throw new Error(`Unknown persona id: ${config.botCardId}`);
 
   const pool = persona.poolFilter(MASTER_BOT_TRICKS);
-  const scalar = config.difficulty
-    ? DIFFICULTY_SCALARS[config.difficulty]
-    : 1.0;
 
   // Apply difficulty scalar to landRate only — sampleWeight (pick probability)
   // is intentionally unchanged so persona character is preserved at all difficulties

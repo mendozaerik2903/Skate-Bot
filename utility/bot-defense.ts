@@ -3,7 +3,7 @@ import { TrickComponents } from "@/constants/trick-options";
 import { Difficulty } from "@/constants/types";
 
 export function attemptDefenseTrick(
-  difficulty: Difficulty,
+  difficulty: Difficulty | null,
   trick: TrickComponents,
 ): boolean {
   const { stance, trick: trickName, rotation } = trick;
@@ -23,7 +23,7 @@ export function attemptDefenseTrick(
     : 1;
 
   // Modifiers stripped from bot pool — multiplier is always 1
-  const difficultyScalar = DIFFICULTY_SCALARS[difficulty];
+  const difficultyScalar = difficulty ? DIFFICULTY_SCALARS[difficulty] : 1;
   const landRate = baseStanceRate * rotationMultiplier * difficultyScalar;
 
   return Math.random() < landRate;

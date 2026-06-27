@@ -1,5 +1,4 @@
 import { Modifier, Rotation, Stance } from "./trick-options";
-import { Difficulty } from "./types";
 
 export type BotTrickData = {
   difficultyTier: 1 | 2 | 3 | 4 | 5;
@@ -9,18 +8,6 @@ export type BotTrickData = {
 };
 
 export type BotTrickSet = Record<string, BotTrickData>;
-
-// ---------------------------------------------------------------------------
-// Difficulty scalars
-// Applied to landRate at game-time for persona-based bots.
-// Custom bots bypass these entirely — their savedPool landRates are used as-is.
-// ---------------------------------------------------------------------------
-
-export const DIFFICULTY_SCALARS: Record<Difficulty, number> = {
-  Easy: 0.5,
-  Medium: 0.75,
-  Hard: 1.0,
-};
 
 // ---------------------------------------------------------------------------
 // Progression window weights

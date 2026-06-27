@@ -1,20 +1,24 @@
+import {
+  landRateScaleColor,
+  nearestDifficultyLabel,
+} from "@/constants/difficulty";
 import { Difficulty } from "@/constants/types";
 import { BotCard } from "@/utility/bot-builder";
 import { BotTrickEntry } from "@/utility/pool-builder";
 import Slider from "@react-native-community/slider";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    LayoutAnimation,
-    Modal,
-    Platform,
-    SectionList,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    UIManager,
-    View,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  SectionList,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  UIManager,
+  View,
 } from "react-native";
 
 // ---------------------------------------------------------------------------
@@ -68,11 +72,8 @@ const STANCE_ABBREV: Record<string, string> = {
   switch: "swi",
 };
 
-function landRateColor(rate: number): string {
-  if (rate >= 0.7) return "#34C759"; // green
-  if (rate >= 0.4) return "#FF9500"; // yellow
-  return "#FF3B30"; // red
-}
+// landRateColor moved to constants/difficulty.ts as landRateScaleColor —
+// gives a continuous green→red readout instead of 3 hard buckets.
 
 function buildSections(pool: BotTrickEntry[]): TrickSection[] {
   const map = new Map<string, BotTrickEntry[]>();
@@ -105,7 +106,7 @@ function LandRateBar({
   editable: boolean;
   onRateChange?: (v: number) => void;
 }) {
-  const color = landRateColor(rate);
+  const color = landRateScaleColor(rate);
   const pct = `${Math.round(rate * 100)}%`;
 
   if (editable && onRateChange) {
@@ -187,7 +188,7 @@ function SectionHeader({
   isCollapsed: boolean;
   onPress: () => void;
 }) {
-  const color = landRateColor(maxLandRate);
+  const color = landRateScaleColor(maxLandRate);
   return (
     <TouchableOpacity
       style={headerStyles.container}
@@ -440,10 +441,12 @@ export default function TrickPoolSheet({
     onClose();
   };
 
-  // Header: persona name + difficulty (read-only) or "Edit Trick Pool" (custom)
+  // Header: persona name + nearest difficulty label (read-only) or "Edit Trick Pool" (custom)
   const sheetTitle = isCustom
     ? `Edit · ${activeCard.name}`
-    : `${activeCard.name}${difficulty ? ` · ${difficulty}` : ""}`;
+    : `${activeCard.name}${
+        difficulty !== null ? ` · ${nearestDifficultyLabel(difficulty)}` : ""
+      }`;
 
   const enabledCount = isCustom
     ? Object.values(editStates).filter((s) => s.enabled).length

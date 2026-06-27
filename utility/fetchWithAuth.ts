@@ -1,10 +1,22 @@
 import {
-    clearTokens,
-    getAccessToken,
-    getRefreshToken,
-    saveTokens,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  saveTokens,
 } from "./auth";
 import { API_URL } from "./config";
+
+// Thrown when fetchWithAuth can't recover from a 401 — either there's no
+// refresh token to try, or the refresh itself was rejected (expired or
+// revoked). Callers that care about distinguishing "session is gone" from
+// a normal network/server failure can check `instanceof SessionExpiredError`
+// rather than matching on message text, which is free to change.
+export class SessionExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SessionExpiredError";
+  }
+}
 
 export const fetchWithAuth = async (
   endpoint: string,
@@ -32,7 +44,7 @@ export const fetchWithAuth = async (
 
   if (!refreshToken) {
     await clearTokens();
-    throw new Error("No refresh token, please sign in again");
+    throw new SessionExpiredError("No refresh token, please sign in again");
   }
 
   const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
@@ -44,7 +56,7 @@ export const fetchWithAuth = async (
   if (!refreshResponse.ok) {
     // refresh token expired or revoked, force sign out
     await clearTokens();
-    throw new Error("Session expired, please sign in again");
+    throw new SessionExpiredError("Session expired, please sign in again");
   }
 
   const { accessToken: newAccessToken } = await refreshResponse.json();

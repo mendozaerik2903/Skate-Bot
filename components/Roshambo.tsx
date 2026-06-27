@@ -1,5 +1,4 @@
 import MatchDisplay from "@/components/MatchDisplay";
-import { Difficulty } from "@/constants/types";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -11,30 +10,16 @@ const emojiMap: Record<string, string> = {
 };
 
 interface RoshamboProps {
-  difficulty: Difficulty;
   letters: string;
   onResolved: (offense: "user" | "bot") => void;
 }
 
-export default function Roshambo({
-  difficulty,
-  letters,
-  onResolved,
-}: RoshamboProps) {
+export default function Roshambo({ letters, onResolved }: RoshamboProps) {
   const [userChoice, setUserChoice] = useState<string | null>(null);
   const [userStatus, setUserStatus] = useState("neutral");
   const [botChoice, setBotChoice] = useState<string | null>(null);
   const [botStatus, setBotStatus] = useState("neutral");
   const [result, setResult] = useState("");
-
-  const chooseDefense = () => {
-    setResult("forfeited");
-    setBotStatus("happy");
-
-    setTimeout(() => {
-      onResolved("bot");
-    }, 2000);
-  };
 
   const playGame = (choice: string) => {
     const bot = choices[Math.floor(Math.random() * choices.length)];
@@ -79,21 +64,14 @@ export default function Roshambo({
         userStatus={userStatus}
         userLetters={userChoice ? emojiMap[userChoice] : ""}
         userScore={0}
-        offense={
-          result === "win"
-            ? "user"
-            : result === "lose"
-              ? "bot"
-              : result === "forfeited"
-                ? "bot"
-                : ""
-        }
+        offense={result === "win" ? "user" : result === "lose" ? "bot" : ""}
         scoreWord={letters}
       />
 
       <View style={styles.mainContainer}>
         {(result === "" || result === "tie") && (
           <View style={styles.roshamboContainer}>
+            <Text style={styles.rulesText}>Winner goes on offense first.</Text>
             <Text style={styles.title}>Choose Rock, Paper, or Scissors</Text>
             <View style={styles.choiceContainer}>
               {choices.map((choice) => (
@@ -134,6 +112,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
     gap: 10,
+  },
+  rulesText: {
+    fontSize: 14,
+    color: "#888",
+    marginBottom: 4,
   },
   title: {
     fontSize: 24,

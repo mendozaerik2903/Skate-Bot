@@ -4,12 +4,13 @@ import { attemptDefenseTrick } from "@/utility/bot-defense";
 import { botOffenseTurn, ProgressionState } from "@/utility/bot-offense";
 import { BotTrickEntry } from "@/utility/pool-builder";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import RollingSkateboard from "./RollingSkateboard";
 import TrickResponse from "./TrickResponse";
 
 interface BotResponseProps {
   scoreWord: string;
-  difficulty: Difficulty;
+  difficulty: Difficulty | null;
   currentOffense: string;
   userTrick?: TrickComponents;
   botResult: (result: AttemptResults) => void;
@@ -159,12 +160,12 @@ export default function BotResponse({
         <View>
           <Text style={styles.text}>
             {currentOffense === "bot"
-              ? "🤖 Bot is picking a trick..."
+              ? "Bot is picking a trick..."
               : isBotRedemption
-                ? "🤖 Bot gets a second chance..."
+                ? "Bot gets a second chance..."
                 : `Bot is attempting your ${userTrick?.fullName}`}
           </Text>
-          <ActivityIndicator size="large" color="#1E90FF" />
+          <RollingSkateboard />
         </View>
       ) : (
         <View>

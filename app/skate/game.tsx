@@ -5,16 +5,18 @@ import Roshambo from "@/components/Roshambo";
 import TrickBuilder from "@/components/TrickBuilder";
 import TrickHistoryList from "@/components/TrickHistoryList";
 import TrickHistoryModal from "@/components/TrickHistoryModal";
+import { DEFAULT_DIFFICULTY_VALUE } from "@/constants/difficulty";
 import { TrickComponents } from "@/constants/trick-options";
 import { Difficulty, TrickHistoryEntry } from "@/constants/types";
-import { resolveGamePool } from "@/utility/bot-builder";
+import { buildCarousel, resolveGamePool } from "@/utility/bot-builder";
 import {
   buildInitialProgression,
   ProgressionState,
 } from "@/utility/bot-offense";
+import { fetchWithAuth, SessionExpiredError } from "@/utility/fetchWithAuth";
 import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,12 +24,29 @@ export default function Game() {
   const { offense, difficulty, letters, username, botCardId, botCardType } =
     useLocalSearchParams<{
       offense: string;
-      difficulty: Difficulty;
+      difficulty: string;
       letters: string;
       username?: string;
       botCardId: string;
       botCardType: "persona" | "custom";
     }>();
+
+  // useLocalSearchParams always deserializes route params as strings,
+  // regardless of the TS annotation above — `difficulty as Difficulty` was
+  // a type-only cast that never actually parsed the string to a number.
+  // Number(...) does the real conversion; Number(undefined) and
+  // Number("") both produce NaN (not null/undefined), so the guard here is
+  // an explicit Number.isNaN check rather than `??` — and deliberately not
+  // a `? :` truthy check, since 0 is a valid, falsy difficulty value that
+  // must not be treated as missing.
+  //
+  // Custom-mode games now also use the difficulty scalar (it's a
+  // non-destructive multiplier on top of the saved pool, applied in
+  // resolveGamePool) — no longer forced to null here.
+  const parsedDifficulty = Number(difficulty);
+  const resolvedDifficulty: Difficulty = Number.isNaN(parsedDifficulty)
+    ? DEFAULT_DIFFICULTY_VALUE
+    : parsedDifficulty;
 
   const [botStatus, setBotStatus] = useState("neutral");
   const [botTurn, setBotTurn] = useState(false);
@@ -52,8 +71,7 @@ export default function Game() {
       {
         botCardId,
         botCardType,
-        difficulty:
-          botCardType === "custom" ? null : (difficulty as Difficulty),
+        difficulty: resolvedDifficulty,
         turnOrder: "user", // turn order already resolved before this screen
       },
       buildBotPool,
@@ -66,6 +84,7 @@ export default function Game() {
   }, []);
   const [trickHistory, setTrickHistory] = useState<TrickHistoryEntry[]>([]);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const hasSavedGameRef = useRef(false);
 
   const appendHistory = (entry: Omit<TrickHistoryEntry, "turn">) => {
     setTrickHistory((prev) => [...prev, { ...entry, turn: prev.length + 1 }]);
@@ -108,6 +127,58 @@ export default function Game() {
     setBotTurn(resolvedOffense === "bot");
   };
 
+  // Persist the completed match once a winner is determined. Guarded by
+  // hasSavedGameRef so this can't double-fire across re-renders while
+  // winner remains set (the async race this protects against is the same
+  // class of bug as the stale-closure / duplicate-fire patterns elsewhere
+  // in this game's bot logic).
+  useEffect(() => {
+    if (winner === null || hasSavedGameRef.current) return;
+    hasSavedGameRef.current = true;
+
+    async function saveGame() {
+      try {
+        const carousel = await buildCarousel();
+        const botCard = carousel.find((card) => card.id === botCardId);
+        const botPersonaName = botCard?.name ?? "Unknown bot";
+
+        const turns = trickHistory.map((entry) => ({
+          turnNumber: entry.turn,
+          isOffense: entry.offense,
+          isUserTurn: entry.performer === "user",
+          trickName: entry.trick,
+          landed: entry.landed,
+        }));
+
+        await fetchWithAuth("/games", {
+          method: "POST",
+          body: JSON.stringify({
+            won: winner === "user",
+            botPersona: botPersonaName,
+            scoreWord: letters,
+            turns,
+          }),
+        });
+      } catch (err) {
+        if (err instanceof SessionExpiredError) {
+          // The user's session is gone — saving silently and leaving them
+          // on the win screen would mean their next action elsewhere in
+          // the app fails with no warning. Redirect now, with the win
+          // screen already having been seen.
+          router.replace("/signin");
+          return;
+        }
+
+        // Any other failure (network, server error) should never block
+        // the win screen from showing — log and move on rather than
+        // surfacing an error to a user who just finished a game.
+        console.error("Failed to save game:", err);
+      }
+    }
+
+    saveGame();
+  }, [winner]);
+
   return (
     <SafeAreaView style={styles.container}>
       <CustomHeader
@@ -124,13 +195,9 @@ export default function Game() {
         username={username ?? "You"}
         scoreWord={letters}
       />
-      {/* Roshambo gates the game board until offense is resolved */}
+      {/* Roshambo gates the game until offense is resolved */}
       {currentOffense === null ? (
-        <Roshambo
-          difficulty={difficulty}
-          letters={letters}
-          onResolved={handleRoshamboResolved}
-        />
+        <Roshambo letters={letters} onResolved={handleRoshamboResolved} />
       ) : (
         <>
           <MatchDisplay
@@ -146,16 +213,42 @@ export default function Game() {
 
           {winner !== null ? (
             <View style={styles.winnerContainer}>
-              <Text style={styles.winnerText}>
-                {winner === "user" ? "🏆 You win!" : "🤖 Bot wins!"}
-              </Text>
-              <TrickHistoryList
-                history={trickHistory}
-                username={username ?? "You"}
-                scoreWord={letters}
-              />
-              <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-                <Text>EXIT</Text>
+              <View
+                style={[
+                  styles.winnerBanner,
+                  winner === "user"
+                    ? styles.winnerBannerWin
+                    : styles.winnerBannerLoss,
+                ]}
+              >
+                <Text style={styles.winnerEmoji}>
+                  {winner === "user" ? "🏆" : "🤖"}
+                </Text>
+                <Text
+                  style={[
+                    styles.winnerText,
+                    winner === "user"
+                      ? styles.winnerTextWin
+                      : styles.winnerTextLoss,
+                  ]}
+                >
+                  {winner === "user" ? "You win!" : "Bot wins!"}
+                </Text>
+              </View>
+
+              <View style={styles.historyScroll}>
+                <TrickHistoryList
+                  history={trickHistory}
+                  username={username ?? "You"}
+                  scoreWord={letters}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.exitButton}
+                onPress={() => router.replace("/(tabs)")}
+              >
+                <Text style={styles.exitButtonText}>Exit</Text>
               </TouchableOpacity>
             </View>
           ) : !poolReady ? (
@@ -207,7 +300,7 @@ export default function Game() {
                     progression={progression!}
                     onProgressionUpdate={(updated) => setProgression(updated)}
                     scoreWord={letters}
-                    difficulty={difficulty as Difficulty}
+                    difficulty={resolvedDifficulty}
                     currentOffense={currentOffense}
                     userTrick={currentTrick}
                     botResult={(result) => {
@@ -289,14 +382,50 @@ const styles = StyleSheet.create({
   winnerContainer: {
     flex: 1,
     width: "100%",
-    height: 340,
     padding: 24,
   },
-  winnerText: {
+  winnerBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 18,
+    marginBottom: 16,
+  },
+  winnerBannerWin: {
+    backgroundColor: "#E6F4EA",
+  },
+  winnerBannerLoss: {
+    backgroundColor: "#F2F2F2",
+  },
+  winnerEmoji: {
     fontSize: 28,
+  },
+  winnerText: {
+    fontSize: 26,
     fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
+  },
+  winnerTextWin: {
+    color: "#1E7A3D",
+  },
+  winnerTextLoss: {
+    color: "#555",
+  },
+  historyScroll: {
+    flex: 1,
+  },
+  exitButton: {
+    backgroundColor: "#1E90FF",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  exitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   historyLabel: {
     fontSize: 18,

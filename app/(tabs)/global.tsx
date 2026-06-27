@@ -106,7 +106,7 @@ export default function Global() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <CustomHeader
         title="map"
         rightIconName="information-circle"

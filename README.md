@@ -1,7 +1,90 @@
 # Skate Bot
 
-Welcome to my mobile app project, "Skate Bot." This app is designed to provide skateboarders a way to practice and test their skateboarding skills by simulating skateboard games. Skaters may select the difficulty to their game. Skaters can either play alone (against a bot) or find other skateboarders to play with using the in-app map feature. The in-app map is designed to show skaters their local parks. A skater can choose to let other users know that they're available to skate with at specific parks.
+A full-stack React Native application that allows skateboarders to play virtual games of SKATE against AI opponents and discover local skate spots.
 
-### SKATE mode
+## Screenshots
 
-Similar to HORSE from basketball - This mode is a classic game amongst skateboarders where two (or more players) participate. This is a free-for-all game where the last one standing wins. There are two roles: Offense and Defense. Only one player can be Offense at a time and the other player(s) are on Defense. Offense must land and set a trick for the Defense to copy. If a Defense player fails to land that trick then the player obtains a letter to spell out a desired word. Once all letters are obtained to spell out the word then this player is out of the game. Last letter gets two tries. The person who never obtains all letters to spell out the desired word wins. If Offense fails to land and set a trick, then their roles are swapped with the next player from a pre-decided order (usually from a game of Rock Paper Scissors beforehand).
+## Features
+
+- User authentication with JWT and refresh tokens
+- Custom trick builder
+- Local skate spot discovery
+- User profiles and game history
+- PostgreSQL persistence
+
+## Tech Stack
+
+### Frontend
+
+- React Native
+- Expo Router
+- TypeScript
+
+### Backend
+
+- Node.js
+- Express
+
+### Database
+
+- PostgreSQL
+
+### Authentication
+
+- JWT
+- bcrypt
+
+### DevOps
+
+- GitHub Actions
+- Render
+
+## Architecture
+
+React Native App => Express API => PostgreSQL Database
+
+## Technical Challenges
+
+### Authentication
+
+Implemented JWT access and refresh token rotation to maintain secure sessions.
+
+### Game Logic
+
+Designed a scoring engine capable of tracking trick progession and determining match outcomes. Designed AI opponents to intelligently pick tricks tailored to their own skater personality.
+
+Allowed users to design their own AI opponent's tricks and probability of landing. Designed a modular trick selector to improve UI experience and
+
+## Lessons Learned
+
+- Designing RESTful APIs
+- Managing authentication flows
+- Database schema design
+- React Native navigation patterns
+- Mobile app architecture
+- Iterating through UI/UX designs
+- Algorithmic behaviors
+
+## Future Improvements
+
+- Multiplayer support
+- Real-time game invitations
+- Skate spot image uploading/viewing
+- Skate spot rating/reporting
+- Push notifications
+- App Store deployment
+
+## Installation
+
+git clone ...
+cd skate-bot
+npm install
+npm run dev
+
+## Live Demo
+
+Frontend:
+https://...
+
+Backend:
+https://...

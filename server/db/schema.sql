@@ -44,7 +44,8 @@ CREATE TABLE public.game_turns (
     is_offense boolean NOT NULL,
     trick_name text NOT NULL,
     landed boolean NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_user_turn boolean NOT NULL
 );
 
 
@@ -56,7 +57,9 @@ CREATE TABLE public.games (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     won boolean,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    bot_persona text,
+    score_word text DEFAULT 'SKATE'::text NOT NULL
 );
 
 
@@ -292,4 +295,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260226141900'),
     ('20260323100000'),
     ('20260323193000'),
-    ('20260423220400');
+    ('20260423220400'),
+    ('20260622171000');

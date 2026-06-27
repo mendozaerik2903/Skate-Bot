@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getAccessToken } from "../utility/auth";
 
 export default function RootLayout() {
@@ -27,12 +28,14 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="classic/roshambo" />
-      <Stack.Screen name="classic/game" />
-      <Stack.Screen name="classic/options" />
-    </Stack>
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="skate/game" />
+        <Stack.Screen name="skate/options" />
+        <Stack.Screen name="games/[id]/history" />
+      </Stack>
+    </SafeAreaProvider>
   );
 }

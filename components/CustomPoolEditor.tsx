@@ -1,21 +1,22 @@
 import { MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
+import { landRateScaleColor } from "@/constants/difficulty";
 import { Stance, stanceOptions, trickOptions } from "@/constants/trick-options";
 import { CustomCard } from "@/utility/bot-builder";
 import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import Slider from "@react-native-community/slider";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-    LayoutAnimation,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    UIManager,
-    View,
+  LayoutAnimation,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  UIManager,
+  View,
 } from "react-native";
 
 // ---------------------------------------------------------------------------
@@ -84,11 +85,7 @@ function editorKey(trick: string, rotation: string, stance: Stance): string {
   return `${trick}|${rotation}|${stance}`;
 }
 
-function landRateColor(rate: number): string {
-  if (rate >= 0.7) return "#34C759";
-  if (rate >= 0.4) return "#FF9500";
-  return "#FF3B30";
-}
+// landRateColor moved to constants/difficulty.ts as landRateScaleColor.
 
 // Build master catalog — all variants with no modifiers
 function buildMasterCatalog(): BotTrickEntry[] {
@@ -184,7 +181,7 @@ function StanceRow({
   onRateChange: (rate: number) => void;
 }) {
   const dimmed = !stateValue.enabled;
-  const color = landRateColor(stateValue.landRate);
+  const color = landRateScaleColor(stateValue.landRate);
 
   return (
     <View style={[stanceRowStyles.container, dimmed && stanceRowStyles.dimmed]}>
