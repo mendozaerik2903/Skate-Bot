@@ -1,12 +1,11 @@
 \restrict dbmate
 
--- Dumped from database version 18.1
--- Dumped by pg_dump version 18.1
+-- Dumped from database version 16.14 (Homebrew)
+-- Dumped by pg_dump version 16.14 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
-SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -123,6 +122,18 @@ CREATE TABLE public.trick_stats (
 
 
 --
+-- Name: user_profile; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_profile (
+    user_id uuid NOT NULL,
+    favorite_trick_name text,
+    favorite_spot_id uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -208,6 +219,14 @@ ALTER TABLE ONLY public.trick_stats
 
 
 --
+-- Name: user_profile user_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profile
+    ADD CONSTRAINT user_profile_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -280,6 +299,22 @@ ALTER TABLE ONLY public.trick_stats
 
 
 --
+-- Name: user_profile user_profile_favorite_spot_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profile
+    ADD CONSTRAINT user_profile_favorite_spot_id_fkey FOREIGN KEY (favorite_spot_id) REFERENCES public.spots(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_profile user_profile_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profile
+    ADD CONSTRAINT user_profile_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -296,4 +331,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260323100000'),
     ('20260323193000'),
     ('20260423220400'),
-    ('20260622171000');
+    ('20260622171000'),
+    ('20260709180000');

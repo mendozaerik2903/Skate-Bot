@@ -95,9 +95,11 @@ function splitIntoRows(cards: VariantCard[]): [VariantCard[], VariantCard[]] {
 
 function VariantCard({
   card,
+  showPercentages,
   onPress,
 }: {
   card: VariantCard;
+  showPercentages: boolean;
   onPress: () => void;
 }) {
   return (
@@ -115,15 +117,25 @@ function VariantCard({
         {card.stances.map((stance) => {
           const rate = card.landRates[stance] ?? 0;
           return (
-            <View
-              key={stance}
-              style={[
-                cardStyles.stanceChip,
-                { backgroundColor: landRateScaleColor(rate) },
-              ]}
-            >
-              <Text style={cardStyles.stanceChipText}>
-                {STANCE_ABBREV[stance]}
+            <View key={stance} style={cardStyles.stanceColumn}>
+              <View
+                style={[
+                  cardStyles.stanceChip,
+                  { backgroundColor: landRateScaleColor(rate) },
+                ]}
+              >
+                <Text style={cardStyles.stanceChipText}>
+                  {STANCE_ABBREV[stance]}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  cardStyles.stancePercent,
+                  { color: landRateScaleColor(rate) },
+                  !showPercentages && cardStyles.stancePercentHidden,
+                ]}
+              >
+                {Math.round(rate * 100)}%
               </Text>
             </View>
           );
@@ -136,7 +148,7 @@ function VariantCard({
 const cardStyles = StyleSheet.create({
   container: {
     width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    height: CARD_HEIGHT + 16, // always the "expanded" height now
     backgroundColor: "#fff",
     borderRadius: 10,
     padding: 10,
@@ -164,8 +176,13 @@ const cardStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
-  stanceChip: {
+  stanceColumn: {
     flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  stanceChip: {
+    width: "100%",
     height: 18,
     borderRadius: 9,
     alignItems: "center",
@@ -175,6 +192,13 @@ const cardStyles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "700",
     color: "#fff",
+  },
+  stancePercent: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  stancePercentHidden: {
+    opacity: 0,
   },
 });
 
@@ -284,6 +308,7 @@ export default function TrickStrip({ pool }: TrickStripProps) {
   const cards = useMemo(() => buildVariantCards(pool), [pool]);
   const [topRow, bottomRow] = useMemo(() => splitIntoRows(cards), [cards]);
   const [selectedCard, setSelectedCard] = useState<VariantCard | null>(null);
+  const [showPercentages, setShowPercentages] = useState(false);
 
   if (cards.length === 0) return null;
 
@@ -301,6 +326,7 @@ export default function TrickStrip({ pool }: TrickStripProps) {
               <VariantCard
                 key={i}
                 card={card}
+                showPercentages={showPercentages}
                 onPress={() => setSelectedCard(card)}
               />
             ))}
@@ -311,12 +337,21 @@ export default function TrickStrip({ pool }: TrickStripProps) {
               <VariantCard
                 key={i}
                 card={card}
+                showPercentages={showPercentages}
                 onPress={() => setSelectedCard(card)}
               />
             ))}
           </View>
         </View>
       </ScrollView>
+      <Pressable
+        style={stripStyles.toggle}
+        onPress={() => setShowPercentages((v) => !v)}
+      >
+        <Text style={stripStyles.toggleText}>
+          {showPercentages ? "Less info" : "More info"}
+        </Text>
+      </Pressable>
 
       <TrickDetailModal
         card={selectedCard}
@@ -338,5 +373,19 @@ const stripStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: 8,
+  },
+  toggle: {
+    alignSelf: "flex-end",
+    marginRight: 16,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  toggleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#444",
   },
 });

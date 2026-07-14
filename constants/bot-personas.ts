@@ -1,5 +1,5 @@
-import { PersonaCard } from "@/utility/bot-builder";
-import { buildBotPool } from "@/utility/pool-builder";
+import { BotTrickSet } from "@/constants/bot-tricks";
+import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import {
   boostTricks,
   filterByStances,
@@ -7,10 +7,24 @@ import {
   filterByTricks,
 } from "@/utility/pool-filters";
 
-export const BOT_PERSONAS: PersonaCard[] = [
+// ---------------------------------------------------------------------------
+// SeedPersona
+// This is now a migration-only shape — used exclusively by bot-builder.ts's
+// one-time migration to materialize these into real BotCard rows in
+// storage. Once migrated, this file (and poolFilter) is never read again;
+// the resulting bots are fully editable/deletable like any other bot.
+// ---------------------------------------------------------------------------
+
+export type SeedPersona = {
+  id: string;
+  name: string;
+  styleDescription: string;
+  poolFilter: (masterTricks: BotTrickSet) => BotTrickEntry[];
+};
+
+export const BOT_PERSONAS: SeedPersona[] = [
   {
     id: "basic-bob",
-    type: "persona",
     name: "Basic Bob",
     styleDescription:
       "Basic flatground tricks from beginner to entry-level intermediate.",
@@ -50,7 +64,6 @@ export const BOT_PERSONAS: PersonaCard[] = [
     // Shuvit Steve: shuvit family boosted heavily, but can throw
     // a kickflip or ollie occasionally like any real skater
     id: "shuvit-steve",
-    type: "persona",
     name: "Shuvit Steve",
     styleDescription: "Spins everything. Flip tricks are an afterthought.",
     poolFilter: (master) =>

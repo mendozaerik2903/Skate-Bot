@@ -1,157 +1,195 @@
 import { BOT_PERSONAS } from "@/constants/bot-personas";
-import { BotTrickSet, MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
+import { MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
 import { DEFAULT_DIFFICULTY_VALUE } from "@/constants/difficulty";
 import { Difficulty } from "@/constants/types";
+import { getCurrentUserId } from "@/utility/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BotTrickEntry } from "./pool-builder";
 
-export type PersonaCard = {
-  type: "persona";
+// ---------------------------------------------------------------------------
+// Unified BotCard type
+// Every bot — starter-pack or user-created — is the same shape and equally
+// editable/deletable. isStarterPack is cosmetic only (badge on the card).
+// ---------------------------------------------------------------------------
+
+export type BotCard = {
   id: string;
   name: string;
-  styleDescription: string;
-  poolFilter: (masterTricks: BotTrickSet) => BotTrickEntry[];
-};
-
-export type CustomCard = {
-  type: "custom";
-  id: string; // unique per card, e.g. "custom-1"
-  name: string; // user-editable, defaults to "My Bot"
+  description: string;
+  avatarEmoji: string;
   savedPool: BotTrickEntry[] | null;
+  advancedMode: boolean; // shows/hides the sampleWeight slider in the editor
+  isStarterPack: boolean;
 };
 
-export type BotCard = PersonaCard | CustomCard;
-
-export const DEFAULT_PERSONA_ID = "flatground-fred";
-
 // ---------------------------------------------------------------------------
-// Custom card storage
-// Key schema: "customCards" -> JSON.stringify(CustomCard[])
+// Storage — scoped per account
+// Key schema: "botCards:<userId>" for signed-in accounts, "botCards:guest"
+// for guest mode. Every account (including a fresh guest session) starts
+// with its own seeded starter pack — bots never leak between accounts
+// sharing a device.
 // ---------------------------------------------------------------------------
 
-const CUSTOM_CARDS_KEY = "customCards";
+// Exported so guest-mode.ts's clearGuestData() can wipe this alongside the
+// guest flag/match history when a guest logs out for good — otherwise a
+// second guest on the same device would inherit the first guest's bots.
+export const GUEST_BOT_CARDS_KEY = "botCards:guest";
 
-export async function loadCustomCards(): Promise<CustomCard[]> {
-  try {
-    const raw = await AsyncStorage.getItem(CUSTOM_CARDS_KEY);
-    if (!raw) return [getDefaultCustomCard()];
-    const parsed: CustomCard[] = JSON.parse(raw);
-    return parsed.length > 0 ? parsed : [getDefaultCustomCard()];
-  } catch {
-    return [getDefaultCustomCard()];
-  }
+async function getBotCardsStorageKey(): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (userId !== null) return `botCards:${userId}`;
+  return GUEST_BOT_CARDS_KEY;
 }
 
-export async function saveCustomCards(cards: CustomCard[]): Promise<void> {
+export function getDefaultNewBotCard(): BotCard {
+  return {
+    id: `bot-${Date.now()}`,
+    name: "New Bot",
+    description: "",
+    avatarEmoji: "🛹",
+    savedPool: null,
+    advancedMode: false,
+    isStarterPack: false,
+  };
+}
+
+// Materialize a hardcoded persona's poolFilter into saved data, once.
+function materializePersona(persona: (typeof BOT_PERSONAS)[number]): BotCard {
+  const pool = persona.poolFilter(MASTER_BOT_TRICKS);
+  return {
+    id: persona.id,
+    name: persona.name,
+    description: persona.styleDescription,
+    avatarEmoji: "🤖",
+    savedPool: pool,
+    advancedMode: false,
+    isStarterPack: true,
+  };
+}
+
+// Every fresh account (real or guest) gets its own materialized starter pack.
+async function seedStarterCards(): Promise<BotCard[]> {
+  const starterCards = BOT_PERSONAS.map(materializePersona);
+  await saveBotCards(starterCards);
+  return starterCards;
+}
+
+export async function loadBotCards(): Promise<BotCard[]> {
   try {
-    await AsyncStorage.setItem(CUSTOM_CARDS_KEY, JSON.stringify(cards));
+    const key = await getBotCardsStorageKey();
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return seedStarterCards();
+    const parsed: BotCard[] = JSON.parse(raw);
+    return parsed.length > 0 ? parsed : seedStarterCards();
   } catch (e) {
-    console.error("Failed to save custom cards:", e);
+    console.error("Failed to load bot cards:", e);
+    return seedStarterCards();
   }
 }
 
-export async function upsertCustomCard(card: CustomCard): Promise<void> {
-  const cards = await loadCustomCards();
+export async function saveBotCards(cards: BotCard[]): Promise<void> {
+  try {
+    const key = await getBotCardsStorageKey();
+    await AsyncStorage.setItem(key, JSON.stringify(cards));
+  } catch (e) {
+    console.error("Failed to save bot cards:", e);
+  }
+}
+
+// Returns the full, updated card list so callers can setState directly.
+export async function upsertBotCard(card: BotCard): Promise<BotCard[]> {
+  const cards = await loadBotCards();
   const index = cards.findIndex((c) => c.id === card.id);
   if (index >= 0) {
     cards[index] = card;
   } else {
     cards.push(card);
   }
-  await saveCustomCards(cards);
+  await saveBotCards(cards);
+  return cards;
+}
+
+// Returns null if the delete was blocked (would remove the last bot).
+export async function deleteBotCard(id: string): Promise<BotCard[] | null> {
+  const cards = await loadBotCards();
+  if (cards.length <= 1) return null;
+  const updated = cards.filter((c) => c.id !== id);
+  await saveBotCards(updated);
+  return updated;
+}
+
+// Persist a new order after a long-press drag reorder on the carousel.
+// Order is implicit in array position — no separate `order` field needed.
+export async function reorderBotCards(cards: BotCard[]): Promise<void> {
+  await saveBotCards(cards);
 }
 
 // ---------------------------------------------------------------------------
-// Default custom card
-// Ships with one slot. savedPool: null triggers persona fallback seeding
-// in the edit screen.
+// Guest → account migration
+// Called from the signup flow, AFTER saveTokens() so getCurrentUserId()
+// (and therefore getBotCardsStorageKey()) already resolves to the new
+// account. Moves the guest's local bot list onto the new account's key,
+// then clears the guest copy — mirrors the "local data is redundant once
+// migrated" pattern already used for guest match history.
 // ---------------------------------------------------------------------------
 
-export function getDefaultCustomCard(): CustomCard {
-  return {
-    type: "custom",
-    id: "custom-1",
-    name: "My Bot",
-    savedPool: null,
-  };
+export async function migrateGuestBotsToAccount(): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(GUEST_BOT_CARDS_KEY);
+    if (!raw) return;
+    const guestCards: BotCard[] = JSON.parse(raw);
+    if (guestCards.length === 0) return;
+    await saveBotCards(guestCards); // writes under the now-current account's key
+    await AsyncStorage.removeItem(GUEST_BOT_CARDS_KEY);
+  } catch (e) {
+    console.error("Failed to migrate guest bots:", e);
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Full carousel builder
-// Call this on screen mount. Merges hardcoded personas + saved custom cards.
-// Shape: [...BOT_PERSONAS, ...customCards]
+// Carousel builder — call on options.tsx focus
 // ---------------------------------------------------------------------------
 
 export async function buildCarousel(): Promise<BotCard[]> {
-  const customCards = await loadCustomCards();
-  return [...BOT_PERSONAS, ...customCards];
+  return loadBotCards();
 }
 
 // ---------------------------------------------------------------------------
-// Navigation payload type
-// Consumed by the game screen to resolve the full BotTrickEntry pool.
+// Navigation payload — every card resolves identically
 // ---------------------------------------------------------------------------
 
 export type GameConfig = {
   botCardId: string;
-  botCardType: "persona" | "custom";
-  // Continuous [0,1] scalar, applied to landRate for both persona and custom
-  // pools. Never null in practice now — options.tsx always sends the current
-  // slider value regardless of card type — but kept nullable for safety at
-  // call sites that predate this change; falls back to DEFAULT_DIFFICULTY_VALUE.
   difficulty: Difficulty | null;
   turnOrder: "user" | "bot" | "roshambo";
 };
 
 // ---------------------------------------------------------------------------
 // Game screen pool resolver
-// Call this on game screen mount with the navigation payload.
-// Returns the fully resolved BotTrickEntry[] ready for weighted sampling.
+// Difficulty scalar applies to landRate ONLY, for every bot — sampleWeight
+// (pick-rate) is never touched, whether or not advancedMode is on. This
+// keeps a bot's "character" (what it likes to throw) stable across
+// difficulty while land-success still gets harder/easier.
 // ---------------------------------------------------------------------------
 
 export async function resolveGamePool(
   config: GameConfig,
-  // buildBotPool still passed in for custom card fallback seeding
-  buildBotPoolFn: (trickSet: BotTrickSet) => BotTrickEntry[],
 ): Promise<BotTrickEntry[]> {
   const scalar = config.difficulty ?? DEFAULT_DIFFICULTY_VALUE;
+  const cards = await loadBotCards();
+  const card = cards.find((c) => c.id === config.botCardId);
+  if (!card) throw new Error(`Unknown bot card id: ${config.botCardId}`);
 
-  if (config.botCardType === "custom") {
-    const cards = await loadCustomCards();
-    const card = cards.find((c) => c.id === config.botCardId);
-    if (card?.savedPool && card.savedPool.length > 0) {
-      // Custom pool: difficulty scalar applied on top of the user's saved,
-      // unscaled landRates — mirrors the same non-destructive multiplier
-      // used for the live preview in options.tsx. sampleWeight matches the
-      // scaled landRate so pick probability tracks the adjusted difficulty.
-      return card.savedPool.map((entry) => {
-        const scaledLandRate = entry.landRate * scalar;
-        return {
-          ...entry,
-          landRate: scaledLandRate,
-          sampleWeight: scaledLandRate,
-        };
-      });
-    }
-    // Fallback: seed from default persona if no saved pool exists
-    const fallback = BOT_PERSONAS.find((p) => p.id === DEFAULT_PERSONA_ID)!;
-    const fallbackPool = fallback.poolFilter(MASTER_BOT_TRICKS);
-    return fallbackPool.map((entry) => ({
-      ...entry,
-      landRate: entry.landRate * scalar,
-    }));
-  }
+  // Fallback: an unconfigured bot (savedPool null/empty) falls back to the
+  // first starter-pack bot's pool rather than starting a game with nothing.
+  const pool =
+    card.savedPool && card.savedPool.length > 0
+      ? card.savedPool
+      : (cards.find((c) => c.isStarterPack)?.savedPool ?? []);
 
-  // Persona path: poolFilter now returns BotTrickEntry[] directly
-  const persona = BOT_PERSONAS.find((p) => p.id === config.botCardId);
-  if (!persona) throw new Error(`Unknown persona id: ${config.botCardId}`);
-
-  const pool = persona.poolFilter(MASTER_BOT_TRICKS);
-
-  // Apply difficulty scalar to landRate only — sampleWeight (pick probability)
-  // is intentionally unchanged so persona character is preserved at all difficulties
   return pool.map((entry) => ({
     ...entry,
     landRate: entry.landRate * scalar,
+    // sampleWeight intentionally left untouched — never scaled by difficulty
   }));
 }

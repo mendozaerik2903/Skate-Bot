@@ -23,5 +23,9 @@
   },
   "nodemonConfig": {
     "experimental-specifier-resolution": "node"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true,
+    "fsevents@2.3.3": true
   }
 }

@@ -47,7 +47,7 @@ export const trickOptions: TrickOption[] = [
     value: "ollie",
     type: "other",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["body varial"],
+    modifiers: []//"body varial"],
   },
 
   {
@@ -55,7 +55,7 @@ export const trickOptions: TrickOption[] = [
     value: "shuvit",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -63,7 +63,7 @@ export const trickOptions: TrickOption[] = [
     value: "kickflip",
     type: "flip",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial"],
+    modifiers: []//["late", "pressure", "body varial"],
   },
 
   {
@@ -71,7 +71,7 @@ export const trickOptions: TrickOption[] = [
     value: "heelflip",
     type: "heel",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial"],
+    modifiers: []//["late", "pressure", "body varial"],
   },
 
   {
@@ -79,7 +79,7 @@ export const trickOptions: TrickOption[] = [
     value: "360 shuvit",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -87,7 +87,7 @@ export const trickOptions: TrickOption[] = [
     value: "bigspin",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["late", "body varial"],
+    modifiers: []//["late", "body varial"],
   },
 
   {
@@ -95,7 +95,7 @@ export const trickOptions: TrickOption[] = [
     value: "varial flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["late", "pressure", "body varial", "revert"],
+    modifiers: []//["late", "pressure", "body varial", "revert"],
   },
 
   {
@@ -103,7 +103,7 @@ export const trickOptions: TrickOption[] = [
     value: "varial heel",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["late", "pressure", "body varial", "revert"],
+    modifiers: []//["late", "pressure", "body varial", "revert"],
   },
 
   {
@@ -111,7 +111,7 @@ export const trickOptions: TrickOption[] = [
     value: "tre flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["pressure", "body varial", "revert"],
+    modifiers: []//["pressure", "body varial", "revert"],
   },
 
   {
@@ -119,7 +119,7 @@ export const trickOptions: TrickOption[] = [
     value: "laser flip",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["pressure", "body varial", "revert"],
+    modifiers: []//["pressure", "body varial", "revert"],
   },
 
   {
@@ -127,7 +127,7 @@ export const trickOptions: TrickOption[] = [
     value: "hardflip",
     type: "flip",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial", "revert"],
+    modifiers: []//["late", "pressure", "body varial", "revert"],
   },
 
   {
@@ -135,7 +135,7 @@ export const trickOptions: TrickOption[] = [
     value: "inward heel",
     type: "heel",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial", "revert"],
+    modifiers: []//["late", "pressure", "body varial", "revert"],
   },
 
   {
@@ -143,7 +143,7 @@ export const trickOptions: TrickOption[] = [
     value: "impossible",
     type: "shuvit",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["front foot"],
+    modifiers: []//["front foot"],
   },
 
   {
@@ -151,7 +151,7 @@ export const trickOptions: TrickOption[] = [
     value: "big flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -159,7 +159,7 @@ export const trickOptions: TrickOption[] = [
     value: "big heel",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -167,7 +167,7 @@ export const trickOptions: TrickOption[] = [
     value: "dolphin flip",
     type: "flip",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -175,7 +175,7 @@ export const trickOptions: TrickOption[] = [
     value: "dolphin heel",
     type: "heel",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -183,7 +183,7 @@ export const trickOptions: TrickOption[] = [
     value: "hospital flip",
     type: "flip",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -191,7 +191,7 @@ export const trickOptions: TrickOption[] = [
     value: "hospital heel",
     type: "heel",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "body varial", "revert"],
+    modifiers: []//["late", "body varial", "revert"],
   },
 
   {
@@ -199,7 +199,7 @@ export const trickOptions: TrickOption[] = [
     value: "double kickflip",
     type: "flip",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial"],
+    modifiers: []//["late", "pressure", "body varial"],
   },
 
   {
@@ -207,7 +207,7 @@ export const trickOptions: TrickOption[] = [
     value: "double heelflip",
     type: "heel",
     rotations: ["BS 180", "FS 180", "BS 360", "FS 360"],
-    modifiers: ["late", "pressure", "body varial"],
+    modifiers: []//["late", "pressure", "body varial"],
   },
 
   {
@@ -215,7 +215,7 @@ export const trickOptions: TrickOption[] = [
     value: "biggerspin",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -223,7 +223,7 @@ export const trickOptions: TrickOption[] = [
     value: "bigger flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -231,7 +231,7 @@ export const trickOptions: TrickOption[] = [
     value: "bigger heel",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -239,7 +239,7 @@ export const trickOptions: TrickOption[] = [
     value: "540 shuvit",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["body varial", "revert"],
+    modifiers: []//["body varial", "revert"],
   },
 
   {
@@ -247,7 +247,7 @@ export const trickOptions: TrickOption[] = [
     value: "540 flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -255,7 +255,7 @@ export const trickOptions: TrickOption[] = [
     value: "540 heel",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -263,7 +263,7 @@ export const trickOptions: TrickOption[] = [
     value: "gazelle spin",
     type: "shuvit",
     rotations: ["BS", "FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -271,7 +271,7 @@ export const trickOptions: TrickOption[] = [
     value: "gazelle flip",
     type: "flip",
     rotations: ["BS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 
   {
@@ -279,7 +279,7 @@ export const trickOptions: TrickOption[] = [
     value: "gazelle heel",
     type: "heel",
     rotations: ["FS"],
-    modifiers: ["revert"],
+    modifiers: []//["revert"],
   },
 ];
 // common words: shuvit, flip, heel, spin, 180, 360, 540

@@ -10,6 +10,7 @@ import {
     View,
 } from "react-native";
 import { saveTokens } from "../../utility/auth";
+import { setGuestMode } from "../../utility/guest-mode";
 
 export default function SignIn() {
   const router = useRouter();
@@ -45,9 +46,25 @@ export default function SignIn() {
     }
   };
 
+  const handleSkipLogin = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      // Guest mode is fully local — no tokens, no backend call. Match
+      // history is saved to AsyncStorage instead (see utility/guestMode.ts)
+      // until the guest signs up or explicitly logs out.
+      await setGuestMode(true);
+      router.replace("/(tabs)");
+    } catch (err) {
+      setError("Could not start guest session");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome back</Text>
+      <Text style={styles.title}>Welcome</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -84,6 +101,9 @@ export default function SignIn() {
 
       <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
         <Text style={styles.link}>Don't have an account? Sign up</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleSkipLogin} disabled={loading}>
+        <Text style={styles.link}>Skip</Text>
       </TouchableOpacity>
     </View>
   );

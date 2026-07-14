@@ -1,6 +1,8 @@
 import CustomHeader from "@/components/CustomHeader";
+import GuestUpsell from "@/components/GuestUpsell";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +18,7 @@ import {
 import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchWithAuth } from "../../utility/fetchWithAuth";
+import { isGuestMode } from "../../utility/guest-mode";
 
 type Spot = {
   id: string;
@@ -41,8 +44,20 @@ export default function Global() {
   const [spotDescription, setSpotDescription] = useState("");
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  // null = not yet known, true/false once resolved. Map is fully gated
+  // behind a real account, so we never request location permission or
+  // fetch /spots until we're sure this isn't a guest.
+  const [isGuest, setIsGuest] = useState<boolean | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      isGuestMode().then(setIsGuest);
+    }, []),
+  );
 
   useEffect(() => {
+    if (isGuest !== false) return;
+
     const init = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -66,7 +81,7 @@ export default function Global() {
     };
 
     init();
-  }, []);
+  }, [isGuest]);
 
   // handler for long press on map
   const handleMapLongPress = (e: any) => {
@@ -104,6 +119,21 @@ export default function Global() {
       Alert.alert("Failed to add spot");
     }
   };
+
+  if (isGuest === null) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <CustomHeader title="map" />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isGuest) {
+    return <GuestUpsell title="map" feature="the Map" />;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -274,6 +304,7 @@ export default function Global() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#fff",
   },
   mainContainer: {
     flex: 1,

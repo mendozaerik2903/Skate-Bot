@@ -1,23 +1,32 @@
+import CustomHeader from "@/components/CustomHeader";
 import { MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
 import { landRateScaleColor } from "@/constants/difficulty";
 import { Stance, stanceOptions, trickOptions } from "@/constants/trick-options";
-import { CustomCard } from "@/utility/bot-builder";
+import {
+  BotCard,
+  deleteBotCard,
+  loadBotCards,
+  upsertBotCard,
+} from "@/utility/bot-builder";
 import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import Slider from "@react-native-community/slider";
-import React, { useCallback, useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
+  KeyboardAvoidingView,
   LayoutAnimation,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   UIManager,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ---------------------------------------------------------------------------
 // Enable LayoutAnimation on Android
@@ -31,44 +40,31 @@ if (
 }
 
 // ---------------------------------------------------------------------------
-// Types
+// Trick pool editor types
 // ---------------------------------------------------------------------------
 
-export type CustomPoolEditorProps = {
-  visible: boolean;
-  onClose: () => void;
-  activeCard: CustomCard;
-  onSave: (updatedPool: BotTrickEntry[]) => void;
-};
-
 // Editor state keyed by "trick|rotation|stance"
-// e.g. "kickflip|BS 180|switch" -> { enabled, landRate }
 type VariantState = {
   enabled: boolean;
-  landRate: number; // 0–1
+  landRate: number; // 0–1, land success rate
+  sampleWeight: number; // 0–1, pick rate — only editable in advanced mode
 };
 
 type EditorState = Record<string, VariantState>;
 
 // A variant row = one fully-named trick (e.g. "bs 180 kickflip") with all its stances
 type VariantRow = {
-  // The display name for the row header (e.g. "bs 180 kickflip", "kickflip")
   displayName: string;
   trick: string;
   rotation: string;
-  // All four stance entries from the master catalog for this trick+rotation
   stanceEntries: BotTrickEntry[];
 };
 
 // A category = one base trick name with all its variant rows
 type TrickCategory = {
-  trickName: string; // e.g. "kickflip"
+  trickName: string;
   variantRows: VariantRow[];
 };
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 const STANCE_LABELS: Record<Stance, string> = {
   regular: "Regular",
@@ -77,15 +73,15 @@ const STANCE_LABELS: Record<Stance, string> = {
   switch: "Switch",
 };
 
+const WEIGHT_COLOR = "#9B59B6";
+
 // ---------------------------------------------------------------------------
-// Helpers
+// Trick pool editor helpers
 // ---------------------------------------------------------------------------
 
 function editorKey(trick: string, rotation: string, stance: Stance): string {
   return `${trick}|${rotation}|${stance}`;
 }
-
-// landRateColor moved to constants/difficulty.ts as landRateScaleColor.
 
 // Build master catalog — all variants with no modifiers
 function buildMasterCatalog(): BotTrickEntry[] {
@@ -96,12 +92,10 @@ function buildMasterCatalog(): BotTrickEntry[] {
 
 // Build the category/variant/stance tree from the master catalog
 function buildCategories(masterCatalog: BotTrickEntry[]): TrickCategory[] {
-  // Use trickOptions for canonical ordering of base trick names
   return trickOptions
     .map((trickOption) => {
       const trickName = trickOption.value;
 
-      // Get all entries for this trick, grouped by rotation
       const rotationMap = new Map<string, BotTrickEntry[]>();
       for (const entry of masterCatalog) {
         if (entry.trick !== trickName) continue;
@@ -110,7 +104,6 @@ function buildCategories(masterCatalog: BotTrickEntry[]): TrickCategory[] {
         rotationMap.set(entry.rotation, existing);
       }
 
-      // Sort rotations: base ("") first, then others in natural order
       const rotations = Array.from(rotationMap.keys()).sort((a, b) => {
         if (a === "") return -1;
         if (b === "") return 1;
@@ -124,8 +117,6 @@ function buildCategories(masterCatalog: BotTrickEntry[]): TrickCategory[] {
           )
           .filter((e): e is BotTrickEntry => e !== undefined);
 
-        // Display name: use fullString of the regular stance entry as canonical label
-        // Falls back to first available stance entry
         const canonical =
           stanceEntries.find((e) => e.stance === "regular") ?? stanceEntries[0];
         const displayName = canonical?.fullString ?? trickName;
@@ -138,28 +129,32 @@ function buildCategories(masterCatalog: BotTrickEntry[]): TrickCategory[] {
     .filter((cat) => cat.variantRows.length > 0);
 }
 
-// Build initial editor state from master catalog overlaid with saved pool
+// Build initial editor state from master catalog overlaid with saved pool.
 function buildInitialEditorState(
   masterCatalog: BotTrickEntry[],
   savedPool: BotTrickEntry[] | null,
 ): EditorState {
-  const savedMap = new Map<string, number>();
+  const savedMap = new Map<
+    string,
+    { landRate: number; sampleWeight: number }
+  >();
   if (savedPool) {
     for (const entry of savedPool) {
-      savedMap.set(
-        editorKey(entry.trick, entry.rotation, entry.stance),
-        entry.landRate,
-      );
+      savedMap.set(editorKey(entry.trick, entry.rotation, entry.stance), {
+        landRate: entry.landRate,
+        sampleWeight: entry.sampleWeight,
+      });
     }
   }
 
   const state: EditorState = {};
   for (const entry of masterCatalog) {
     const key = editorKey(entry.trick, entry.rotation, entry.stance);
-    const savedRate = savedMap.get(key);
+    const saved = savedMap.get(key);
     state[key] = {
-      enabled: savedRate !== undefined,
-      landRate: savedRate ?? entry.landRate, // fall back to master rate
+      enabled: saved !== undefined,
+      landRate: saved?.landRate ?? entry.landRate,
+      sampleWeight: saved?.sampleWeight ?? entry.landRate,
     };
   }
   return state;
@@ -172,13 +167,17 @@ function buildInitialEditorState(
 function StanceRow({
   stance,
   stateValue,
+  advancedMode,
   onToggle,
   onRateChange,
+  onWeightChange,
 }: {
   stance: Stance;
   stateValue: VariantState;
+  advancedMode: boolean;
   onToggle: (enabled: boolean) => void;
   onRateChange: (rate: number) => void;
+  onWeightChange: (weight: number) => void;
 }) {
   const dimmed = !stateValue.enabled;
   const color = landRateScaleColor(stateValue.landRate);
@@ -200,22 +199,46 @@ function StanceRow({
         />
       </View>
       {stateValue.enabled ? (
-        <View style={stanceRowStyles.sliderRow}>
-          <Text style={[stanceRowStyles.pct, { color }]}>
-            {Math.round(stateValue.landRate * 100)}%
-          </Text>
-          <Slider
-            style={stanceRowStyles.slider}
-            minimumValue={0}
-            maximumValue={1}
-            step={0.01}
-            value={stateValue.landRate}
-            onValueChange={onRateChange}
-            minimumTrackTintColor={color}
-            maximumTrackTintColor="#e0e0e0"
-            thumbTintColor={color}
-          />
-        </View>
+        <>
+          <View style={stanceRowStyles.sliderRow}>
+            <Text style={stanceRowStyles.sliderTag}>Land</Text>
+            <Text style={[stanceRowStyles.pct, { color }]}>
+              {Math.round(stateValue.landRate * 100)}%
+            </Text>
+            <Slider
+              style={stanceRowStyles.slider}
+              minimumValue={0}
+              maximumValue={1}
+              step={0.01}
+              value={stateValue.landRate}
+              onValueChange={onRateChange}
+              minimumTrackTintColor={color}
+              maximumTrackTintColor="#e0e0e0"
+              thumbTintColor={color}
+            />
+          </View>
+          {advancedMode && (
+            <View style={stanceRowStyles.sliderRow}>
+              <Text style={[stanceRowStyles.sliderTag, { color: WEIGHT_COLOR }]}>
+                Pick
+              </Text>
+              <Text style={[stanceRowStyles.pct, { color: WEIGHT_COLOR }]}>
+                {stateValue.sampleWeight.toFixed(2)}
+              </Text>
+              <Slider
+                style={stanceRowStyles.slider}
+                minimumValue={0}
+                maximumValue={1}
+                step={0.01}
+                value={stateValue.sampleWeight}
+                onValueChange={onWeightChange}
+                minimumTrackTintColor={WEIGHT_COLOR}
+                maximumTrackTintColor="#e0e0e0"
+                thumbTintColor={WEIGHT_COLOR}
+              />
+            </View>
+          )}
+        </>
       ) : (
         <View style={stanceRowStyles.sliderRow}>
           <Text style={[stanceRowStyles.pct, stanceRowStyles.dimmedText]}>
@@ -261,6 +284,12 @@ const stanceRowStyles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  sliderTag: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#aaa",
+    width: 28,
+  },
   pct: {
     fontSize: 11,
     fontWeight: "600",
@@ -287,17 +316,21 @@ const stanceRowStyles = StyleSheet.create({
 function VariantRowItem({
   variant,
   editorState,
+  advancedMode,
   isExpanded,
   onToggleExpand,
   onStanceToggle,
   onStanceRateChange,
+  onStanceWeightChange,
 }: {
   variant: VariantRow;
   editorState: EditorState;
+  advancedMode: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStanceToggle: (key: string, enabled: boolean) => void;
   onStanceRateChange: (key: string, rate: number) => void;
+  onStanceWeightChange: (key: string, weight: number) => void;
 }) {
   const enabledCount = variant.stanceEntries.filter((e) => {
     const key = editorKey(e.trick, e.rotation, e.stance);
@@ -326,14 +359,17 @@ function VariantRowItem({
           const stateValue = editorState[key] ?? {
             enabled: false,
             landRate: entry.landRate,
+            sampleWeight: entry.landRate,
           };
           return (
             <StanceRow
               key={key}
               stance={entry.stance}
               stateValue={stateValue}
+              advancedMode={advancedMode}
               onToggle={(enabled) => onStanceToggle(key, enabled)}
               onRateChange={(rate) => onStanceRateChange(key, rate)}
+              onWeightChange={(weight) => onStanceWeightChange(key, weight)}
             />
           );
         })}
@@ -389,23 +425,26 @@ const variantRowStyles = StyleSheet.create({
 function TrickCategoryItem({
   category,
   editorState,
+  advancedMode,
   isCategoryExpanded,
   expandedVariants,
   onToggleCategory,
   onToggleVariant,
   onStanceToggle,
   onStanceRateChange,
+  onStanceWeightChange,
 }: {
   category: TrickCategory;
   editorState: EditorState;
+  advancedMode: boolean;
   isCategoryExpanded: boolean;
   expandedVariants: Set<string>;
   onToggleCategory: () => void;
   onToggleVariant: (variantKey: string) => void;
   onStanceToggle: (key: string, enabled: boolean) => void;
   onStanceRateChange: (key: string, rate: number) => void;
+  onStanceWeightChange: (key: string, weight: number) => void;
 }) {
-  // Count all enabled stances across all variants in this category
   const enabledCount = category.variantRows.reduce((sum, v) => {
     return (
       sum +
@@ -448,10 +487,12 @@ function TrickCategoryItem({
                 key={vKey}
                 variant={variant}
                 editorState={editorState}
+                advancedMode={advancedMode}
                 isExpanded={expandedVariants.has(vKey)}
                 onToggleExpand={() => onToggleVariant(vKey)}
                 onStanceToggle={onStanceToggle}
                 onStanceRateChange={onStanceRateChange}
+                onStanceWeightChange={onStanceWeightChange}
               />
             );
           })}
@@ -525,45 +566,84 @@ const categoryStyles = StyleSheet.create({
 });
 
 // ---------------------------------------------------------------------------
-// Main component
+// Screen — resolves bot from route params, then mounts the editor body
 // ---------------------------------------------------------------------------
 
-export default function CustomPoolEditor({
-  visible,
-  onClose,
-  activeCard,
-  onSave,
-}: CustomPoolEditorProps) {
+export default function BotEditScreen() {
+  const { botCardId } = useLocalSearchParams<{ botCardId: string }>();
+  const [bot, setBot] = useState<BotCard | null>(null);
+
+  useEffect(() => {
+    loadBotCards().then((bots) => {
+      setBot(bots.find((b) => b.id === botCardId) ?? null);
+    });
+  }, [botCardId]);
+
+  if (!bot) return null;
+
+  return <BotEditBody initialBot={bot} />;
+}
+
+// ---------------------------------------------------------------------------
+// Body — fields + inline trick pool editor
+// ---------------------------------------------------------------------------
+
+function BotEditBody({ initialBot }: { initialBot: BotCard }) {
+  const [bot, setBot] = useState(initialBot);
+
   const masterCatalog = useMemo(() => buildMasterCatalog(), []);
   const categories = useMemo(
     () => buildCategories(masterCatalog),
     [masterCatalog],
   );
 
-  // Editor state — keyed by "trick|rotation|stance"
   const [editorState, setEditorState] = useState<EditorState>(() =>
-    buildInitialEditorState(masterCatalog, activeCard.savedPool),
+    buildInitialEditorState(masterCatalog, initialBot.savedPool),
   );
+  const [advancedMode, setAdvancedMode] = useState(initialBot.advancedMode);
 
-  // Reinitialise when a different custom card becomes active
-  const [lastCardId, setLastCardId] = useState(activeCard.id);
-  if (activeCard.id !== lastCardId) {
-    setLastCardId(activeCard.id);
-    setEditorState(
-      buildInitialEditorState(masterCatalog, activeCard.savedPool),
-    );
-  }
-
-  // Category expand/collapse — all collapsed by default
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(),
   );
-
-  // Variant expand/collapse — all collapsed by default
   const [expandedVariants, setExpandedVariants] = useState<Set<string>>(
     new Set(),
   );
 
+  // ── Name / description / emoji fields ──
+  const handleFieldChange = useCallback(
+    (field: "name" | "description" | "avatarEmoji", value: string) => {
+      setBot((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const handleFieldCommit = useCallback(async () => {
+    await upsertBotCard(bot);
+  }, [bot]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      "Delete Bot",
+      `Are you sure you want to delete "${bot.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const updated = await deleteBotCard(bot.id);
+            if (updated === null) {
+              Alert.alert("Can't Delete", "At least one bot must remain.");
+              return;
+            }
+            router.back();
+          },
+        },
+      ],
+    );
+  }, [bot]);
+
+  // ── Trick pool editor ──
   const animate = () =>
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
@@ -600,15 +680,24 @@ export default function CustomPoolEditor({
     }));
   }, []);
 
-  // Save validation
+  const handleStanceWeightChange = useCallback(
+    (key: string, weight: number) => {
+      setEditorState((prev) => ({
+        ...prev,
+        [key]: { ...prev[key], sampleWeight: weight },
+      }));
+    },
+    [],
+  );
+
   const enabledCount = useMemo(
     () => Object.values(editorState).filter((s) => s.enabled).length,
     [editorState],
   );
-  const canSave = enabledCount > 0;
+  const canSavePool = enabledCount > 0;
 
-  const handleSave = () => {
-    if (!canSave) return;
+  const handleSavePool = useCallback(async () => {
+    if (!canSavePool) return;
     const updatedPool = masterCatalog
       .filter((entry) => {
         const key = editorKey(entry.trick, entry.rotation, entry.stance);
@@ -616,80 +705,127 @@ export default function CustomPoolEditor({
       })
       .map((entry) => {
         const key = editorKey(entry.trick, entry.rotation, entry.stance);
+        const state = editorState[key];
         return {
           ...entry,
-          landRate: editorState[key]?.landRate ?? entry.landRate,
+          landRate: state?.landRate ?? entry.landRate,
+          sampleWeight: state?.sampleWeight ?? entry.landRate,
         };
       });
-    onSave(updatedPool);
-    onClose();
-  };
+
+    const updatedBot: BotCard = { ...bot, savedPool: updatedPool, advancedMode };
+    await upsertBotCard(updatedBot);
+    setBot(updatedBot);
+  }, [bot, canSavePool, editorState, advancedMode, masterCatalog]);
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={editorStyles.overlay}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={StyleSheet.absoluteFill} />
-        </TouchableWithoutFeedback>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <CustomHeader
+        title="edit bot"
+        showBackButton
+        rightIconName="trash-outline"
+        onRightIconPress={handleDelete}
+      />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Name / description / emoji ── */}
+          <View style={styles.editRow}>
+            <TextInput
+              style={styles.emojiInput}
+              value={bot.avatarEmoji}
+              onChangeText={(v) =>
+                handleFieldChange("avatarEmoji", v.slice(-2))
+              }
+              onBlur={handleFieldCommit}
+              maxLength={2}
+            />
+            <TextInput
+              style={styles.nameInput}
+              value={bot.name}
+              onChangeText={(v) => handleFieldChange("name", v)}
+              onBlur={handleFieldCommit}
+              placeholder="Bot name"
+              placeholderTextColor={"grey"}
+            />
+          </View>
+          <TextInput
+            style={styles.descriptionInput}
+            value={bot.description}
+            onChangeText={(v) => handleFieldChange("description", v)}
+            onBlur={handleFieldCommit}
+            placeholder="Description"
+            placeholderTextColor={"grey"}
+            returnKeyType="done"
+          />
 
-        <View style={editorStyles.card}>
-          {/* Handle */}
-          <View style={editorStyles.handle} />
-
-          {/* Header */}
-          <View style={editorStyles.header}>
-            <View>
-              <Text style={editorStyles.title}>Edit · {activeCard.name}</Text>
+          {/* ── Trick pool section ── */}
+          <View style={styles.poolSectionHeader}>
+            <View style={styles.poolSectionTextColumn}>
+              <Text style={styles.poolSectionTitle}>Trick Pool</Text>
               <Text
                 style={[
-                  editorStyles.subtitle,
-                  !canSave && editorStyles.subtitleError,
+                  styles.poolSubtitle,
+                  !canSavePool && styles.poolSubtitleError,
                 ]}
               >
-                {canSave
+                {canSavePool
                   ? `${enabledCount} stance variant${enabledCount !== 1 ? "s" : ""} enabled`
                   : "Enable at least 1 trick to save"}
               </Text>
             </View>
             <TouchableOpacity
               style={[
-                editorStyles.saveButton,
-                !canSave && editorStyles.saveButtonDisabled,
+                styles.saveButton,
+                !canSavePool && styles.saveButtonDisabled,
               ]}
-              onPress={handleSave}
-              disabled={!canSave}
+              onPress={handleSavePool}
+              disabled={!canSavePool}
             >
-              <Text style={editorStyles.saveText}>Save</Text>
+              <Text style={styles.saveText}>Save</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Category list */}
-          <ScrollView
-            contentContainerStyle={editorStyles.scroll}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.advancedRow}>
+            <View style={styles.advancedTextColumn}>
+              <Text style={styles.advancedLabel}>Pick Rates</Text>
+              <Text style={styles.advancedSubtitle}>
+                Rate at which a trick is chosen to be attempted.
+              </Text>
+            </View>
+            <Switch
+              value={advancedMode}
+              onValueChange={setAdvancedMode}
+              trackColor={{ false: "#ddd", true: WEIGHT_COLOR }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={styles.categoryList}>
             {categories.map((category) => (
               <TrickCategoryItem
                 key={category.trickName}
                 category={category}
                 editorState={editorState}
+                advancedMode={advancedMode}
                 isCategoryExpanded={expandedCategories.has(category.trickName)}
                 expandedVariants={expandedVariants}
                 onToggleCategory={() => toggleCategory(category.trickName)}
                 onToggleVariant={toggleVariant}
                 onStanceToggle={handleStanceToggle}
                 onStanceRateChange={handleStanceRateChange}
+                onStanceWeightChange={handleStanceWeightChange}
               />
             ))}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -697,49 +833,62 @@ export default function CustomPoolEditor({
 // Styles
 // ---------------------------------------------------------------------------
 
-const editorStyles = StyleSheet.create({
-  overlay: {
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  flex: { flex: 1 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
+
+  // Name / description / emoji
+  editRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  emojiInput: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#fff",
+    textAlign: "center",
+    fontSize: 22,
+  },
+  nameInput: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
+    fontSize: 16,
+    fontWeight: "700",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
-  card: {
-    backgroundColor: "#f5f5f5",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "90%",
-    paddingBottom: 36,
+  descriptionInput: {
+    fontSize: 14,
+    color: "#444",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
   },
-  handle: {
-    width: 36,
-    height: 4,
-    backgroundColor: "#ddd",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  header: {
+
+  // Trick pool section
+  poolSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#f5f5f5",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    marginTop: 8,
   },
-  title: {
-    fontSize: 16,
+  poolSectionTextColumn: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  poolSectionTitle: {
+    fontSize: 15,
     fontWeight: "700",
     color: "#111",
   },
-  subtitle: {
+  poolSubtitle: {
     fontSize: 12,
     color: "#999",
     marginTop: 2,
   },
-  subtitleError: {
+  poolSubtitleError: {
     color: "#FF3B30",
   },
   saveButton: {
@@ -756,8 +905,30 @@ const editorStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  scroll: {
-    padding: 16,
+  advancedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+  },
+  advancedTextColumn: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  advancedLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111",
+  },
+  advancedSubtitle: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 1,
+  },
+  categoryList: {
     gap: 12,
   },
 });

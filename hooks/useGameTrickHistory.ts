@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utility/fetchWithAuth";
+import { getGuestMatchHistory, isGuestMode } from "../utility/guest-mode";
 import {
   RawGameTurn,
   replayGameTurns,
@@ -40,13 +41,37 @@ export function useGameTrickHistory(
 
     async function loadTurns() {
       try {
+        // Guest match turns are already stored in the same shape the
+        // backend's /turns endpoint returns (RawGameTurn), so they replay
+        // through the exact same function — no transform needed.
+        if (await isGuestMode()) {
+          const matches = await getGuestMatchHistory();
+          const match = matches.find((m) => m.id === gameId);
+          if (!match) throw new Error("Game not found");
+
+          const { history: replayedHistory } = replayGameTurns(
+            match.turns as RawGameTurn[],
+          );
+
+          if (isMounted) {
+            setGame({
+              id: match.id,
+              won: match.won,
+              bot_persona: match.botPersona,
+              score_word: match.scoreWord,
+              created_at: match.createdAt,
+            });
+            setHistory(replayedHistory);
+          }
+          return;
+        }
+
         const response = await fetchWithAuth(`/games/${gameId}/turns`);
         if (!response.ok) throw new Error("Failed to fetch trick history");
         const data: {
           game: UseGameTrickHistoryResult["game"];
           turns: RawGameTurn[];
         } = await response.json();
-        // console.log(data.turns);
 
         const { history: replayedHistory } = replayGameTurns(data.turns);
 

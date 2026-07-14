@@ -68,6 +68,7 @@ Allowed users to design their own AI opponent's tricks and probability of landin
 ## Future Improvements
 
 - Multiplayer support
+- Copy previous match history bots
 - Real-time game invitations
 - Skate spot image uploading/viewing
 - Skate spot rating/reporting

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "../utility/fetchWithAuth";
+import { getGuestMatchHistory, isGuestMode } from "../utility/guest-mode";
 
 export interface GameSummary {
   id: string;
@@ -18,6 +19,23 @@ export function useGameHistory(limit = 20) {
 
     async function loadGames() {
       try {
+        // Guest matches live in AsyncStorage, already stored newest-first —
+        // map to the same GameSummary shape the backend returns so the
+        // Skate tab doesn't need to know which source it's reading from.
+        if (await isGuestMode()) {
+          const guestMatches = await getGuestMatchHistory();
+          const guestGames: GameSummary[] = guestMatches
+            .slice(0, limit)
+            .map((match) => ({
+              id: match.id,
+              won: match.won,
+              bot_persona: match.botPersona,
+              created_at: match.createdAt,
+            }));
+          if (isMounted) setGames(guestGames);
+          return;
+        }
+
         const response = await fetchWithAuth(`/games?limit=${limit}`);
         if (!response.ok) throw new Error("Failed to fetch game history");
         const data: { games: GameSummary[] } = await response.json();

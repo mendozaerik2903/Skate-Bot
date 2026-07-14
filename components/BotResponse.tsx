@@ -10,7 +10,7 @@ import TrickResponse from "./TrickResponse";
 
 interface BotResponseProps {
   scoreWord: string;
-  difficulty: Difficulty | null;
+  difficulty: Difficulty;
   currentOffense: string;
   userTrick?: TrickComponents;
   botResult: (result: AttemptResults) => void;

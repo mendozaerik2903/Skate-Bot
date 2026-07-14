@@ -1,37 +1,31 @@
+import BotCardView from "@/components/BotCardView";
 import CustomHeader from "@/components/CustomHeader";
-import CustomPoolEditor from "@/components/CustomPoolEditor";
 import DifficultySlider from "@/components/DifficultySlider";
-import PersonaCardView from "@/components/PersonaCardView";
 import SegmentedControl from "@/components/SegmentedControl";
-import TrickPoolSheet from "@/components/TrickPoolSheet";
 import TrickStrip from "@/components/TrickStrip";
-import { MASTER_BOT_TRICKS } from "@/constants/bot-tricks";
 import { DEFAULT_DIFFICULTY_VALUE } from "@/constants/difficulty";
 import { Difficulty } from "@/constants/types";
 import {
   BotCard,
-  CustomCard,
   buildCarousel,
-  upsertCustomCard,
+  getDefaultNewBotCard,
+  reorderBotCards,
+  upsertBotCard,
 } from "@/utility/bot-builder";
 import { BotTrickEntry } from "@/utility/pool-builder";
-import { router } from "expo-router";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
-  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   ViewToken,
 } from "react-native";
+import DraggableFlatList, {
+  RenderItemParams,
+} from "react-native-draggable-flatlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -50,51 +44,26 @@ export default function SkateScreen() {
   );
   const [letters, setLetters] = useState("SKATE");
   const [turnOrder, setTurnOrder] = useState<TurnOrder>("Roshambo");
-  const [sheetVisible, setSheetVisible] = useState(false);
-  const [editorVisible, setEditorVisible] = useState(false);
 
-  // Load carousel on mount
-  useEffect(() => {
-    buildCarousel().then(setCarousel);
-  }, []);
+  // Reload on every focus — picks up edits/deletes/reorders made on the
+  // bot-edit / trick-pool-editor screens when navigating back.
+  useFocusEffect(
+    useCallback(() => {
+      buildCarousel().then(setCarousel);
+    }, []),
+  );
 
   const activeCard = carousel[activeIndex] ?? null;
-  const isCustomActive = activeCard?.type === "custom";
 
-  // Resolve the trick pool for the active card
+  // Resolve the trick pool for the active card — difficulty scalar applies
+  // to landRate only, for every bot; sampleWeight is never touched.
   const resolvedPool = useMemo<BotTrickEntry[]>(() => {
     if (!activeCard) return [];
-
-    if (activeCard.type === "custom") {
-      // Custom pool: difficulty slider acts as a live preview multiplier on
-      // top of the user's saved per-stance landRates. This is intentionally
-      // non-destructive — CustomPoolEditor always saves/loads the unscaled
-      // baseline, so readjusting the slider later never compounds or loses
-      // the original authored values.
-      return (activeCard.savedPool ?? []).map((entry) => {
-        const scaledLandRate = entry.landRate * difficulty;
-        return {
-          ...entry,
-          landRate: scaledLandRate,
-          sampleWeight: entry.sampleWeight ?? scaledLandRate,
-        };
-      });
-    }
-
-    // Persona: poolFilter returns BotTrickEntry[] with sampleWeight already set.
-    // Apply difficulty scalar to landRate only — sampleWeight stays boosted.
-    const pool = activeCard.poolFilter(MASTER_BOT_TRICKS);
-    return pool.map((entry) => ({
+    return (activeCard.savedPool ?? []).map((entry) => ({
       ...entry,
       landRate: entry.landRate * difficulty,
     }));
   }, [activeCard, difficulty]);
-
-  // Unique base trick count for the button row label
-  const baseTrickCount = useMemo(() => {
-    const names = new Set(resolvedPool.map((e) => e.trick));
-    return names.size;
-  }, [resolvedPool]);
 
   // FlatList viewability — update activeIndex as user swipes
   const onViewableItemsChanged = useCallback(
@@ -108,32 +77,24 @@ export default function SkateScreen() {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 });
 
-  const openSheet = () => {
-    if (isCustomActive) {
-      setEditorVisible(true);
-    } else {
-      setSheetVisible(true);
-    }
-  };
+  const openBotEdit = (botCardId: string) =>
+    router.push({ pathname: "/skate/bot-edit", params: { botCardId } });
 
-  // Save custom pool back to AsyncStorage and update carousel state
-  const handleSaveCustomPool = useCallback(
-    async (updatedPool: BotTrickEntry[]) => {
-      if (!activeCard || activeCard.type !== "custom") return;
-      const updatedCard: CustomCard = {
-        ...activeCard,
-        savedPool: updatedPool,
-      };
-      await upsertCustomCard(updatedCard);
-      // Update in-memory carousel so UI reflects saved state immediately
-      setCarousel((prev) =>
-        prev.map((c) => (c.id === updatedCard.id ? updatedCard : c)),
-      );
-    },
-    [activeCard],
-  );
+  // Create a new bot and go straight to its edit screen
+  const handleAddBot = useCallback(async () => {
+    const newBot = getDefaultNewBotCard();
+    const updated = await upsertBotCard(newBot);
+    setCarousel(updated);
+    openBotEdit(newBot.id);
+  }, []);
 
-  // Start game — all three turn order paths navigate to /classic/game
+  // Persist carousel order after a long-press drag reorder
+  const handleDragEnd = useCallback(({ data }: { data: BotCard[] }) => {
+    setCarousel(data);
+    reorderBotCards(data);
+  }, []);
+
+  // Start game
   const handleStart = () => {
     if (!activeCard) return;
 
@@ -151,7 +112,6 @@ export default function SkateScreen() {
         difficulty: difficulty,
         letters: letters,
         botCardId: activeCard.id,
-        botCardType: activeCard.type,
       },
     });
   };
@@ -160,29 +120,49 @@ export default function SkateScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <CustomHeader title="skate" showBackButton />
+      <CustomHeader
+        title="setup"
+        showBackButton
+        rightIconName="add"
+        onRightIconPress={handleAddBot}
+      />
 
       <View style={styles.content}>
-        {/* Bot Persona Carousel */}
-        <FlatList
+        {/* Bot Carousel — long-press a card to drag-reorder */}
+        <DraggableFlatList
           data={carousel}
           horizontal
-          pagingEnabled={false}
+          onDragEnd={handleDragEnd}
+          activationDistance={12}
           snapToInterval={CARD_WIDTH + CARD_MARGIN * 2}
+          autoscrollThreshold={CARD_WIDTH * 0.25}
+          autoscrollSpeed={150}
           snapToAlignment="center"
           decelerationRate="fast"
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={true}
+          dragItemOverflow={true}
           keyExtractor={(item) => item.id}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig.current}
           contentContainerStyle={styles.carouselContent}
-          renderItem={({ item, index }) => (
-            <PersonaCardView
-              card={item}
-              isActive={index === activeIndex}
-              width={CARD_WIDTH}
-            />
-          )}
+          renderItem={({
+            item,
+            drag,
+            isActive: isDragging,
+            getIndex,
+          }: RenderItemParams<BotCard>) => {
+            const index = getIndex() ?? 0;
+            return (
+              <BotCardView
+                card={item}
+                isActive={index === activeIndex}
+                isDragging={isDragging}
+                width={CARD_WIDTH}
+                onEdit={() => openBotEdit(item.id)}
+                onLongPress={drag}
+              />
+            );
+          }}
           style={styles.carousel}
         />
 
@@ -203,23 +183,9 @@ export default function SkateScreen() {
           </View>
         )}
 
-        {/* ── Trick pool button row ── */}
-        <TouchableOpacity
-          style={styles.poolRow}
-          onPress={openSheet}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.poolRowLabel}>
-            {isCustomActive ? "Edit Trick Pool" : "Preview Trick Pool"}
-          </Text>
-          <Text style={styles.poolRowMeta}>
-            {baseTrickCount} trick{baseTrickCount !== 1 ? "s" : ""}
-            {"  ›"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* ── Difficulty (shown for all card types, custom included) ── */}
+        {/* ── Difficulty (shown for all bots) ── */}
         <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Difficulty</Text>
           <DifficultySlider value={difficulty} onValueChange={setDifficulty} />
         </View>
 
@@ -256,30 +222,9 @@ export default function SkateScreen() {
           disabled={!activeCard}
           activeOpacity={0.85}
         >
-          <Text style={styles.startButtonText}>⚡ BATTLE BOT</Text>
+          <Text style={styles.startButtonText}>Start Game</Text>
         </TouchableOpacity>
       </View>
-
-      {/* ── Trick Pool Sheet (persona cards) ── */}
-      {activeCard && activeCard.type === "persona" && (
-        <TrickPoolSheet
-          visible={sheetVisible}
-          onClose={() => setSheetVisible(false)}
-          activeCard={activeCard}
-          difficulty={difficulty}
-          pool={resolvedPool}
-        />
-      )}
-
-      {/* ── Custom Pool Editor (custom cards) ── */}
-      {activeCard && activeCard.type === "custom" && (
-        <CustomPoolEditor
-          visible={editorVisible}
-          onClose={() => setEditorVisible(false)}
-          activeCard={activeCard}
-          onSave={handleSaveCustomPool}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -334,33 +279,6 @@ const styles = StyleSheet.create({
   // Strip wrapper — no horizontal padding, strip handles its own
   stripWrapper: {
     marginBottom: -4,
-  },
-
-  // Pool button row
-  poolRow: {
-    marginHorizontal: 16,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  poolRowLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111",
-  },
-  poolRowMeta: {
-    fontSize: 14,
-    color: "#1E90FF",
-    fontWeight: "600",
   },
 
   // Start button

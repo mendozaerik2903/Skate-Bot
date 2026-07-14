@@ -54,10 +54,10 @@ export const MASTER_BOT_TRICKS: BotTrickSet = {
   // -------------------------------------------------------------------------
   ollie: {
     difficultyTier: 1,
-    stanceRates: { regular: 0.95, fakie: 0.9, nollie: 0.75, switch: 0.7 },
+    stanceRates: { regular: 0.98, fakie: 0.95, nollie: 0.85, switch: 0.80 },
     rotationModifiers: {
-      "BS 180": 0.85,
-      "FS 180": 0.85,
+      "BS 180": 0.9,
+      "FS 180": 0.9,
       "BS 360": 0.6,
       "FS 360": 0.55,
     },
@@ -66,7 +66,7 @@ export const MASTER_BOT_TRICKS: BotTrickSet = {
 
   shuvit: {
     difficultyTier: 1,
-    stanceRates: { regular: 0.88, fakie: 0.85, nollie: 0.72, switch: 0.68 },
+    stanceRates: { regular: 0.92, fakie: 0.9, nollie: 0.75, switch: 0.68 },
     rotationModifiers: { BS: 1.0, FS: 0.95 },
     modifierPenalties: {},
   },

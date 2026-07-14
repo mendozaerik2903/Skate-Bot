@@ -32,7 +32,6 @@ export default function DifficultySlider({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Difficulty</Text>
         <Text style={[styles.hint, { color }]}>
           {dragging ? `leaning ${hintLabel}` : hintLabel}
         </Text>

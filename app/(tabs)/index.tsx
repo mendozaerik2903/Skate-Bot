@@ -1,10 +1,19 @@
 import CustomHeader from "@/components/CustomHeader";
 import { GameSummary, useGameHistory } from "@/hooks/useGameHistory";
 import { useGameStats } from "@/hooks/useGameStats";
+import { clearGuestData, isGuestMode } from "@/utility/guest-mode";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from 'expo-status-bar';
 
 export default function Index() {
   const { stats, isLoading: statsLoading } = useGameStats();
@@ -15,6 +24,7 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.mainContainer} edges={["top"]}>
+      
       <CustomHeader title="skate" />
 
       {isLoading ? (
@@ -68,7 +78,7 @@ function OnboardingState() {
   return (
     <View style={styles.container}>
       <Text style={styles.onboardingTagline}>
-        Play your first game of S.K.A.T.E. to start building your record.
+        Play your first game of SKATE to start building your match history.
       </Text>
       <StartGameButton />
     </View>
@@ -222,14 +232,14 @@ const styles = StyleSheet.create({
     marginTop: 48,
   },
   startButton: {
-    backgroundColor: "#1D9E75",
+    backgroundColor: "#1E90FF",
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
     marginBottom: 16,
   },
   startButtonText: {
-    color: "#04342C",
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
   },

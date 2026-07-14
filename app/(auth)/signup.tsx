@@ -10,6 +10,13 @@ import {
     View,
 } from "react-native";
 import { saveTokens } from "../../utility/auth";
+import { migrateGuestBotsToAccount } from "../../utility/bot-builder";
+import { fetchWithAuth } from "../../utility/fetchWithAuth";
+import {
+  clearGuestData,
+  getGuestMatchHistory,
+  isGuestMode,
+} from "../../utility/guest-mode";
 
 export default function SignUp() {
   const router = useRouter();
@@ -47,6 +54,34 @@ export default function SignUp() {
       const signinData = await signinResponse.json();
 
       await saveTokens(signinData.accessToken, signinData.refreshToken);
+
+      // A guest signing up keeps their match history and bots. saveTokens()
+      // above must happen first — everything below resolves the current
+      // account by decoding the access token we just saved, so the bot
+      // migration writes to the new account's storage key, not the guest's.
+      if (await isGuestMode()) {
+        const guestMatches = await getGuestMatchHistory();
+        for (const match of guestMatches) {
+          try {
+            await fetchWithAuth("/games", {
+              method: "POST",
+              body: JSON.stringify({
+                won: match.won,
+                botPersona: match.botPersona,
+                scoreWord: match.scoreWord,
+                turns: match.turns,
+              }),
+            });
+          } catch (migrateErr) {
+            // Don't let one bad match block the rest, and don't block
+            // entering the app over a migration failure.
+            console.error("Failed to migrate guest match:", migrateErr);
+          }
+        }
+        await migrateGuestBotsToAccount();
+        await clearGuestData();
+      }
+
       router.replace("/(tabs)");
     } catch (err) {
       setError("Could not connect to server");

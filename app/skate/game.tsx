@@ -14,6 +14,7 @@ import {
   ProgressionState,
 } from "@/utility/bot-offense";
 import { fetchWithAuth, SessionExpiredError } from "@/utility/fetchWithAuth";
+import { appendGuestMatch, isGuestMode } from "@/utility/guest-mode";
 import { BotTrickEntry, buildBotPool } from "@/utility/pool-builder";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -21,14 +22,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Game() {
-  const { offense, difficulty, letters, username, botCardId, botCardType } =
+  const { offense, difficulty, letters, username, botCardId } =
     useLocalSearchParams<{
       offense: string;
       difficulty: string;
       letters: string;
       username?: string;
       botCardId: string;
-      botCardType: "persona" | "custom";
     }>();
 
   // useLocalSearchParams always deserializes route params as strings,
@@ -70,12 +70,9 @@ export default function Game() {
     resolveGamePool(
       {
         botCardId,
-        botCardType,
         difficulty: resolvedDifficulty,
         turnOrder: "user", // turn order already resolved before this screen
-      },
-      buildBotPool,
-    ).then((resolved) => {
+      }).then((resolved) => {
       setBotPool(resolved);
       setResetPool(resolved);
       setProgression(buildInitialProgression(resolved));
@@ -150,14 +147,23 @@ export default function Game() {
           landed: entry.landed,
         }));
 
+        const matchPayload = {
+          won: winner === "user",
+          botPersona: botPersonaName,
+          scoreWord: letters,
+          turns,
+        };
+
+        // Guests never hold tokens, so there's no session to authenticate
+        // with — save to AsyncStorage instead of hitting the backend.
+        if (await isGuestMode()) {
+          await appendGuestMatch(matchPayload);
+          return;
+        }
+
         await fetchWithAuth("/games", {
           method: "POST",
-          body: JSON.stringify({
-            won: winner === "user",
-            botPersona: botPersonaName,
-            scoreWord: letters,
-            turns,
-          }),
+          body: JSON.stringify(matchPayload),
         });
       } catch (err) {
         if (err instanceof SessionExpiredError) {

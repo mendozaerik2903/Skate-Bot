@@ -12,7 +12,7 @@ import Animated, {
 
 const TRAVEL_DISTANCE = 300; // how far the board rolls, in px
 const ROLL_DURATION = 900; // ms for one direction
-const PAUSE_DURATION = 400; // ms paused at each end
+const PAUSE_DURATION = 450; // ms paused at each end
 
 export default function RollingSkateboard() {
   const translateX = useSharedValue(0);
